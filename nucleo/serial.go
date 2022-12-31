@@ -7,15 +7,14 @@ import (
 	"trelligo/dfplayer"
 )
 
-var _ = dfplayer.RoundTripper(&UsbTty{})
+var _ = dfplayer.RoundTripper(&NucleoRoundTripper{})
 
-type UsbTty struct {
-	port      serial.Port
-	rxBuffer  []byte
-	rxTimeout time.Duration
+type NucleoRoundTripper struct {
+	port     serial.Port
+	rxBuffer []byte
 }
 
-func (u *UsbTty) Send(tx *dfplayer.Frame, rx *dfplayer.Frame) error {
+func (u *NucleoRoundTripper) Send(tx *dfplayer.Frame, rx *dfplayer.Frame) error {
 	err := u.port.ResetInputBuffer()
 	if err != nil {
 		return err
@@ -24,11 +23,11 @@ func (u *UsbTty) Send(tx *dfplayer.Frame, rx *dfplayer.Frame) error {
 	if err != nil {
 		return err
 	}
-	deadline := time.Now().Add(u.rxTimeout)
+	deadline := time.Now().Add(time.Millisecond * 200)
 	return u.readToDeadline(rx, deadline)
 }
 
-func (u *UsbTty) readToDeadline(rx *dfplayer.Frame, deadline time.Time) error {
+func (u *NucleoRoundTripper) readToDeadline(rx *dfplayer.Frame, deadline time.Time) error {
 	count := 0
 	u.rxBuffer = u.rxBuffer[:0]
 	buf := make([]byte, 10)
@@ -51,7 +50,7 @@ func (u *UsbTty) readToDeadline(rx *dfplayer.Frame, deadline time.Time) error {
 	return nil
 }
 
-func NewUsbTty(device string) *UsbTty {
+func NewUsbTty(device string) *NucleoRoundTripper {
 	//ex: /dev/ttyUSB0
 	// 9600 8N1
 	mode := &serial.Mode{
@@ -74,5 +73,5 @@ func NewUsbTty(device string) *UsbTty {
 	//}
 	//fmt.Printf("RX: %v", buf[:n])
 
-	return &UsbTty{port: port, rxBuffer: make([]byte, 10), rxTimeout: time.Millisecond * 200}
+	return &NucleoRoundTripper{port: port, rxBuffer: make([]byte, 10)}
 }

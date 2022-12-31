@@ -13,7 +13,7 @@ func main() {
 	writer := usbtty.NewUsbTty("/dev/ttyUSB0")
 
 	lwriter := &LoggingWriter{w: writer, logger: os.Stderr}
-	dfplayer := dfplayer.NewDFPlayer(lwriter)
+	dfplayer := dfplayer.NewPlayer(lwriter)
 
 	//reset
 	//time.Sleep(time.Millisecond * 100)

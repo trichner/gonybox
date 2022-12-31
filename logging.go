@@ -7,7 +7,7 @@ import (
 )
 
 type LoggingWriter struct {
-	w      dfplayer.DFPlayerPort
+	w      dfplayer.RoundTripper
 	logger io.Writer
 }
 
