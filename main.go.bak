@@ -1,0 +1,79 @@
+package main
+
+import (
+	"machine"
+	"time"
+	"trelligo/dfplayer"
+)
+
+const dfplayerSendLength = 10
+
+type DFPlayerUart struct {
+	serial *machine.UART
+}
+
+func (d *DFPlayerUart) Write(f *dfplayer.Frame) error {
+	_, err := d.serial.Write(f[:])
+	return err
+}
+
+func main() {
+	led := machine.LED
+	led.Configure(machine.PinConfig{Mode: machine.PinOutput})
+
+	machine.InitSerial()
+
+	//reset := []byte{0x7e, 0xff, 0x06, 0x0c, 0x01, 0x00, 0x00, 0xfe, 0xee, 0xef}
+
+	serial := machine.Serial
+	serial.SetBaudRate(9600)
+
+	dfplayerUart := DFPlayerUart{serial: serial}
+
+	dfplayer := dfplayer.NewDFPlayer(&dfplayerUart)
+
+	dfplayer.SendCommand(0x0c)
+	time.Sleep(time.Second)
+	dfplayer.SendCommandWithArg(0x12, 1)
+	/*
+
+		void mp3_play (uint16_t num) {
+			mp3_send_cmd (0x12, num);
+		}
+	*/
+
+	//for _, b := range reset {
+	//	err := serial.WriteByte(b)
+	//	if err != nil {
+	//		debug_blink()
+	//	}
+	//	time.Sleep(time.Millisecond * 100)
+	//}
+	//time.Sleep(time.Millisecond * 3000)
+	//
+	//playFirst := []byte{0x7e, 0xff, 0x06, 0x03, 0x00, 0x00, 0x01, 0xff, 0xe6, 0xef}
+	//_, err := serial.Write(playFirst)
+	//if err != nil {
+	//	debug_blink()
+	//}
+
+	for {
+		led.Low()
+		time.Sleep(time.Millisecond * 500)
+
+		led.High()
+		time.Sleep(time.Millisecond * 500)
+	}
+}
+
+func debug_blink() {
+
+	led := machine.LED
+	for {
+		led.Low()
+		time.Sleep(time.Millisecond * 50)
+
+		led.High()
+		time.Sleep(time.Millisecond * 50)
+	}
+}
