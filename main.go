@@ -13,32 +13,43 @@ func main() {
 	writer := usbtty.NewUsbTty("/dev/ttyUSB0")
 
 	lwriter := &LoggingWriter{w: writer, logger: os.Stderr}
-	dfplayer := dfplayer.NewPlayer(lwriter)
+	player := dfplayer.NewPlayer(lwriter)
 
-	//reset
-	//time.Sleep(time.Millisecond * 100)
-	err = dfplayer.SendCommand(0x0c)
+	err = player.Reset()
 	if err != nil {
 		log.Fatal(err)
 	}
-	time.Sleep(time.Millisecond * 2000)
+	// chip needs some time to actually reset, even though ACK comes faster :/
+	time.Sleep(time.Millisecond * 1000)
 
 	// volume
-	err = dfplayer.SendCommandWithArg(0x06, 10)
+	err = player.SetVolume(15)
 	if err != nil {
 		log.Fatal(err)
 	}
-	//IMPORTANT: it seems the cheep needs a bit to actually set the volume
-	time.Sleep(time.Millisecond * 300)
+	//IMPORTANT: it seems the chip needs a bit to actually set the volume
+	//time.Sleep(time.Millisecond * 300)
 
-	//song 1
-	err = dfplayer.SendCommandWithArg(0x03, 2)
+	//play file 2
+	err = player.Play(2)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	time.Sleep(time.Second * 3)
+	err = player.Play(1)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	time.Sleep(time.Second * 3)
+	err = player.Stop()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	////play
-	//err = dfplayer.SendCommand(0x0d)
+	//err = player.sendCommand(0x0d)
 	//if err != nil {
 	//	log.Fatal(err)
 	//}
