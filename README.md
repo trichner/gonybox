@@ -1,8 +1,24 @@
 
 
 ```bash
-# Debug with openocd (Fedora openocd doesn't compute)
-sudo ~/.platformio/packages/tool-openocd/bin/openocd -f /usr/share/openocd/scripts/board/st_nucleo_l4.cfg
+# use vendored openocd instead of Fedora provided
+~/.platformio/packages/tool-openocd/bin/openocd
+
+# Debug Nucelo L432KC with openocd (Fedora openocd doesn't compute)
+openocd -f /usr/share/openocd/scripts/board/st_nucleo_l4.cfg
+
+# Debug Adafruit Feather M0 with openocd
+# config in openocd.cfg
+openocd
+
+# Connect GDB to remote server
+# start with
+gdb -f trelligo.elf
+# connect to openocd server
+(gdb) target extended-remote :3333
+
+# Connect GDB to remote server with config file
+gdb -x openocd-gdb.cfg
 ```
 
 https://wiki.dfrobot.com/DFPlayer_Mini_SKU_DFR0299

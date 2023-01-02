@@ -22,5 +22,8 @@ func (l *LoggingWriter) Send(tx *dfplayer.Frame, rx *dfplayer.Frame) error {
 	fmt.Fprintf(l.logger, "RX: %s\n", rx.String())
 	ms := tock.Sub(tick).Milliseconds()
 	fmt.Fprintf(l.logger, "Latency: %dms\n", ms)
+	if err != nil {
+		fmt.Fprintf(l.logger, "Error: %v\n", err)
+	}
 	return err
 }

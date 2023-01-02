@@ -1,58 +1,52 @@
 package main
 
 import (
-	"log"
-	"os"
+	"machine"
 	"time"
 	"trelligo/dfplayer"
-	"trelligo/usbtty"
+	"trelligo/mcu"
 )
 
 func main() {
-	var err error
-	writer := usbtty.NewUsbTty("/dev/ttyUSB0")
+	machine.LED.Configure(machine.PinConfig{Mode: machine.PinOutput})
 
-	lwriter := &LoggingWriter{w: writer, logger: os.Stderr}
-	player := dfplayer.NewPlayer(lwriter)
+	uart := machine.UART1
+	uart.Configure(machine.UARTConfig{
+		BaudRate: 9600,
+		TX:       machine.D10,
+		RX:       machine.D11,
+	})
 
-	err = player.Reset()
+	rr := mcu.NewRoundTripper(uart)
+	player := dfplayer.NewPlayer(rr)
+
+	err := player.Reset()
 	if err != nil {
-		log.Fatal(err)
+		fatal()
 	}
-	// chip needs some time to actually reset, even though ACK comes faster :/
-	time.Sleep(time.Millisecond * 1000)
+	time.Sleep(time.Millisecond * 2000)
 
-	// volume
-	err = player.SetVolume(15)
-	if err != nil {
-		log.Fatal(err)
-	}
-	//IMPORTANT: it seems the chip needs a bit to actually set the volume
-	//time.Sleep(time.Millisecond * 300)
+	player.SetVolume(10)
 
-	//play file 2
 	err = player.Play(2)
 	if err != nil {
-		log.Fatal(err)
+		fatal()
 	}
 
-	time.Sleep(time.Second * 3)
-	err = player.Play(1)
-	if err != nil {
-		log.Fatal(err)
+	for {
+		machine.LED.High()
+		time.Sleep(500 * time.Millisecond)
+
+		machine.LED.Low()
+		time.Sleep(500 * time.Millisecond)
 	}
+}
 
-	time.Sleep(time.Second * 3)
-	err = player.Stop()
-	if err != nil {
-		log.Fatal(err)
+func fatal() {
+	for {
+		machine.LED.High()
+		time.Sleep(100 * time.Millisecond)
+		machine.LED.Low()
+		time.Sleep(100 * time.Millisecond)
 	}
-
-	////play
-	//err = player.sendCommand(0x0d)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//time.Sleep(time.Millisecond * 100)
-
 }
