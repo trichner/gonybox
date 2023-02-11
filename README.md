@@ -1,5 +1,11 @@
 
+## MFRC522
 
+### Resources
+
+- [Arduino Library](https://github.com/OSSLibraries/Arduino_MFRC522v2)
+
+## Debug & Flash with OpenOCD
 ```bash
 # use vendored openocd instead of Fedora provided
 ~/.platformio/packages/tool-openocd/bin/openocd
