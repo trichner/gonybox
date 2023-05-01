@@ -1,4 +1,4 @@
-package mcu
+package uart
 
 import (
 	"log"

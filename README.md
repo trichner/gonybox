@@ -4,6 +4,13 @@
 screen -L /dev/ttyACM0 9600
 ```
 
+## Wiring DFPlayer
+```
+MCU -> DFPlayer
+D0 (TX) -> RX
+D1 (RX) -> TX
+```
+
 ## MFRC522
 
 

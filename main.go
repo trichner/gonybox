@@ -5,8 +5,11 @@ import (
 	"time"
 	"trelligo/pkg/debug"
 	"trelligo/pkg/dfplayer"
-	"trelligo/pkg/mcu"
-	mfrc5222 "trelligo/pkg/mfrc522"
+	"trelligo/pkg/dfplayer/uart"
+	"trelligo/pkg/neotrellis"
+	"trelligo/pkg/seesaw"
+	"trelligo/pkg/seesaw/neopixel"
+	"trelligo/pkg/shims/rand"
 )
 
 func main() {
@@ -15,18 +18,10 @@ func main() {
 
 	time.Sleep(time.Second * 10)
 
-	debug.Log("setup RC522")
-	rc522, err := setupRC522()
-	if err != nil {
-		fatal()
-	}
-
-	_ = rc522
-
 	debug.Log("setup Dfplayer")
 	player, err := setupDfplayer()
 	if err != nil {
-		fatal()
+		fatal(err.Error())
 	}
 
 	player.SetVolume(10)
@@ -34,59 +29,84 @@ func main() {
 	debug.Log("play song")
 	err = player.Play(2)
 	if err != nil {
-		fatal()
+		fatal(err.Error())
+	}
+
+	// seesaw
+	debug.Log("setup seesaw")
+
+	debug.Log("i2c init")
+	i2c := machine.I2C0
+	err = i2c.Configure(machine.I2CConfig{
+		SCL: machine.SCL_PIN,
+		SDA: machine.SDA_PIN,
+	})
+	if err != nil {
+		fatal(err.Error())
+	}
+
+	debug.Log("seesaw new")
+	seesawDev := seesaw.New(neotrellis.DefaultNeotrellisAddress, i2c)
+
+	debug.Log("seesaw begin")
+	err = seesawDev.Begin()
+	if err != nil {
+		fatal(err.Error())
+	}
+
+	debug.Log("initializing neopixels")
+	// https://github.com/adafruit/Adafruit_Seesaw/blob/8a2dc5e0645239cb34e23a4b62c456436b098ab3/Adafruit_NeoTrellis.cpp#L10
+	const NeoTrellisSeesawPin = 3
+	const nPixels = 16
+	pix, err := neopixel.New(seesawDev, NeoTrellisSeesawPin, nPixels, neopixel.NEO_GRB)
+	if err != nil {
+		fatal(err.Error())
+	}
+
+	hi, err := machine.GetRNG()
+	if err != nil {
+		fatal(err.Error())
+	}
+	lo, err := machine.GetRNG()
+	if err != nil {
+		fatal(err.Error())
+	}
+	rsrc := rand.NewSource(int64(hi)<<32 | int64(lo))
+	prng := rand.New(rsrc)
+	for {
+		debug.Log("turning on neopixels")
+		for i := 0; i < nPixels; i++ {
+			c := prng.Uint32()
+			err := pix.SetPixelColor(uint16(i), byte(c), byte(c>>8), byte(c>>16), 0)
+			if err != nil {
+				fatal(err.Error())
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+		debug.Log("showing")
+		err = pix.ShowPixels()
+		if err != nil {
+			fatal(err.Error())
+		}
+		debug.Log("done!")
 	}
 
 	for {
 		machine.LED.Toggle()
 		time.Sleep(500 * time.Millisecond)
-
-		if rc522.IsNewCardPresent() {
-
-			debug.Log("NEW CARD!")
-			uid, err := rc522.PiccSelect()
-			if err != nil {
-				debug.Log(err.Error())
-			} else {
-				debug.Log("UID: " + debug.FmtSliceToHex(uid))
-			}
-			machine.LED.High()
-			time.Sleep(10 * time.Millisecond)
-
-			machine.LED.Low()
-			time.Sleep(500 * time.Millisecond)
-		}
 	}
-}
-
-func setupRC522() (*mfrc5222.Device, error) {
-
-	spi := machine.SPI0
-	spi.Configure(machine.SPIConfig{
-		SCK: machine.SPI0_SCK_PIN,
-		SDO: machine.SPI0_SDO_PIN,
-		SDI: machine.SPI0_SDI_PIN,
-	})
-
-	chipSelect := machine.PA07
-	chipSelect.Configure(machine.PinConfig{Mode: machine.PinOutput})
-	spiDriver := mfrc5222.NewSpiDriver(mfrc5222.NewSpi(spi, chipSelect))
-	driver := &mfrc5222.LoggedDriver{Delegate: spiDriver, Start: time.Now().UnixMilli()}
-	rc522Dev := mfrc5222.NewDevice(driver)
-	err := rc522Dev.Init()
-	return rc522Dev, err
 }
 
 func setupDfplayer() (*dfplayer.Player, error) {
 
-	uart := machine.UART1
-	uart.Configure(machine.UARTConfig{
+	uart1 := machine.UART1
+	uart1.Configure(machine.UARTConfig{
 		BaudRate: 9600,
 		TX:       machine.D1,
 		RX:       machine.D0,
 	})
 
-	rr := mcu.NewRoundTripper(uart)
+	rr := uart.NewRoundTripper(uart1)
 	player := dfplayer.NewPlayer(rr)
 
 	err := player.Reset()
@@ -97,7 +117,8 @@ func setupDfplayer() (*dfplayer.Player, error) {
 	return player, nil
 }
 
-func fatal() {
+func fatal(s string) {
+	debug.Log("FATAL: " + s)
 	for {
 		machine.LED.High()
 		time.Sleep(100 * time.Millisecond)
