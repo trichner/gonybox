@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"io"
 	"time"
-	"trelligo/dfplayer"
+	dfplayer2 "trelligo/pkg/dfplayer"
 )
 
 type LoggingWriter struct {
-	w      dfplayer.RoundTripper
+	w      dfplayer2.RoundTripper
 	logger io.Writer
 }
 
-func (l *LoggingWriter) Send(tx *dfplayer.Frame, rx *dfplayer.Frame) error {
+func (l *LoggingWriter) Send(tx *dfplayer2.Frame, rx *dfplayer2.Frame) error {
 	fmt.Fprintf(l.logger, "TX: %s\n", tx.String())
 
 	tick := time.Now()

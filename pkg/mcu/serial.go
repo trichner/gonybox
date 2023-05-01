@@ -4,7 +4,7 @@ import (
 	"log"
 	"machine"
 	"time"
-	"trelligo/dfplayer"
+	"trelligo/pkg/dfplayer"
 )
 
 var _ = dfplayer.RoundTripper(&RoundTripper{})

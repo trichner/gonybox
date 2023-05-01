@@ -148,11 +148,11 @@ func (d *Device) SoftReset() error {
 	retries := 3
 
 	// Wait for the PowerDown bit in CommandReg to be cleared
-	time.Sleep(50 * time.Millisecond)
 	for {
-		pd, err := d.readPowerDownBit()
+		time.Sleep(50 * time.Millisecond)
+		pd, err := d.isPowerDownBitSet()
 		retries--
-		if err != nil && pd == false {
+		if err == nil && pd == false {
 			return nil
 		}
 		if retries == 0 {
@@ -161,9 +161,74 @@ func (d *Device) SoftReset() error {
 	}
 }
 
-func (d *Device) readPowerDownBit() (bool, error) {
+func (d *Device) isPowerDownBitSet() (bool, error) {
 	b, err := d.readSingleRegister(CommandReg)
-	return (b & (byte(1) << 4)) != 0, err
+	return (b & BIT4) != 0, err
+}
+
+func (d *Device) calculateCrc(bytes []byte, crc []byte) error {
+
+	if len(crc) != 2 {
+		return errors.New("unexpected crc length")
+	}
+
+	if err := d.sendIdleCommand(); err != nil {
+		return err
+	}
+
+	if err := d.writeSingleRegister(DivIrqReg, 0x04); err != nil { // Clear the CRCIRq interrupt request bit
+		return err
+	}
+	if err := d.writeSingleRegister(FIFOLevelReg, 0x80); err != nil { // FlushBuffer = 1, FIFO initialization
+		return err
+	}
+	if err := d.driver.WriteRegister(FIFODataReg, bytes); err != nil { // Write data to the FIFO
+		return err
+	}
+	if err := d.writeSingleRegister(CommandReg, byte(CommandCalcCRC)); err != nil { // Start the calculation
+		return err
+	}
+
+	return d.readCalculatedCrc(crc)
+}
+
+func (d *Device) readCalculatedCrc(crc []byte) error {
+
+	//try for approximately 90ms
+	for i := 0; i < 900; i++ {
+		// DivIrqReg[7..0] bits are: Set2 reserved reserved MfinActIRq reserved CRCIRq reserved reserved
+		r, err := d.readSingleRegister(DivIrqReg)
+		if err != nil {
+			return err
+		}
+		if r&0x04 != 0 { // CRCIRq bit set - calculation done
+			if err := d.sendIdleCommand(); err != nil {
+				return err
+			}
+			if err := d.readCrcBytes(crc); err != nil {
+				return err
+			}
+			return nil
+		}
+		time.Sleep(100 * time.Microsecond)
+	}
+
+	return ErrTimeout
+}
+
+func (d *Device) readCrcBytes(crc []byte) error {
+	b, err := d.readSingleRegister(CRCResultRegL)
+	if err != nil {
+		return err
+	}
+	crc[0] = b
+
+	b, err = d.readSingleRegister(CRCResultRegH)
+	if err != nil {
+		return err
+	}
+	crc[1] = b
+	return nil
 }
 
 func (d *Device) writeSingleRegister(reg Register, b byte) error {

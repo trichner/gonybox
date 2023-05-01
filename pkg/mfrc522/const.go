@@ -1,5 +1,6 @@
 package mfrc522
 
+//go:generate go run github.com/dmarkham/enumer -type=Register
 type Register byte
 
 const (
@@ -109,8 +110,9 @@ type BitFraming byte
 func (b *BitFraming) SetStartSend(on bool) {
 	if on {
 		*b |= BitFraming(BIT7)
+	} else {
+		*b &= ^BitFraming(BIT7)
 	}
-	*b &= ^BitFraming(BIT7)
 }
 
 func (b *BitFraming) SetRxAlign(align uint8) {

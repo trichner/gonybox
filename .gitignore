@@ -2,3 +2,5 @@
 *.iml
 *.elf
 *.hex
+*.log
+screenlog.0

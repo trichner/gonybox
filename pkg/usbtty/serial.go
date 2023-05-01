@@ -4,10 +4,10 @@ import (
 	"go.bug.st/serial"
 	"log"
 	"time"
-	"trelligo/dfplayer"
+	dfplayer2 "trelligo/pkg/dfplayer"
 )
 
-var _ = dfplayer.RoundTripper(&UsbTty{})
+var _ = dfplayer2.RoundTripper(&UsbTty{})
 
 type UsbTty struct {
 	port      serial.Port
@@ -15,7 +15,7 @@ type UsbTty struct {
 	rxTimeout time.Duration
 }
 
-func (u *UsbTty) Send(tx *dfplayer.Frame, rx *dfplayer.Frame) error {
+func (u *UsbTty) Send(tx *dfplayer2.Frame, rx *dfplayer2.Frame) error {
 	err := u.port.ResetInputBuffer()
 	if err != nil {
 		return err
@@ -28,7 +28,7 @@ func (u *UsbTty) Send(tx *dfplayer.Frame, rx *dfplayer.Frame) error {
 	return u.readToDeadline(rx, deadline)
 }
 
-func (u *UsbTty) readToDeadline(rx *dfplayer.Frame, deadline time.Time) error {
+func (u *UsbTty) readToDeadline(rx *dfplayer2.Frame, deadline time.Time) error {
 	count := 0
 	u.rxBuffer = u.rxBuffer[:0]
 	buf := make([]byte, 10)
@@ -38,7 +38,7 @@ func (u *UsbTty) readToDeadline(rx *dfplayer.Frame, deadline time.Time) error {
 			return err
 		}
 		if n == 0 && time.Now().After(deadline) {
-			return dfplayer.ErrDeviceTimeout
+			return dfplayer2.ErrDeviceTimeout
 		}
 		count += n
 		u.rxBuffer = append(u.rxBuffer, buf[:n]...)

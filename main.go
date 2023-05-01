@@ -3,15 +3,17 @@ package main
 import (
 	"machine"
 	"time"
-	"trelligo/debug"
-	"trelligo/dfplayer"
-	"trelligo/mcu"
-	"trelligo/mfrc522"
+	"trelligo/pkg/debug"
+	"trelligo/pkg/dfplayer"
+	"trelligo/pkg/mcu"
+	mfrc5222 "trelligo/pkg/mfrc522"
 )
 
 func main() {
 	machine.LED.Configure(machine.PinConfig{Mode: machine.PinOutput})
 	machine.InitSerial()
+
+	time.Sleep(time.Second * 10)
 
 	debug.Log("setup RC522")
 	rc522, err := setupRC522()
@@ -36,16 +38,18 @@ func main() {
 	}
 
 	for {
-		machine.LED.High()
+		machine.LED.Toggle()
 		time.Sleep(500 * time.Millisecond)
 
-		machine.LED.Low()
-		time.Sleep(500 * time.Millisecond)
-
-		debug.Log("check for card song")
 		if rc522.IsNewCardPresent() {
 
 			debug.Log("NEW CARD!")
+			uid, err := rc522.PiccSelect()
+			if err != nil {
+				debug.Log(err.Error())
+			} else {
+				debug.Log("UID: " + debug.FmtSliceToHex(uid))
+			}
 			machine.LED.High()
 			time.Sleep(10 * time.Millisecond)
 
@@ -55,7 +59,7 @@ func main() {
 	}
 }
 
-func setupRC522() (*mfrc522.Device, error) {
+func setupRC522() (*mfrc5222.Device, error) {
 
 	spi := machine.SPI0
 	spi.Configure(machine.SPIConfig{
@@ -66,8 +70,9 @@ func setupRC522() (*mfrc522.Device, error) {
 
 	chipSelect := machine.PA07
 	chipSelect.Configure(machine.PinConfig{Mode: machine.PinOutput})
-	spiDriver := mfrc522.NewSpiDriver(mfrc522.NewSpi(spi, chipSelect))
-	rc522Dev := mfrc522.NewDevice(spiDriver)
+	spiDriver := mfrc5222.NewSpiDriver(mfrc5222.NewSpi(spi, chipSelect))
+	driver := &mfrc5222.LoggedDriver{Delegate: spiDriver, Start: time.Now().UnixMilli()}
+	rc522Dev := mfrc5222.NewDevice(driver)
 	err := rc522Dev.Init()
 	return rc522Dev, err
 }

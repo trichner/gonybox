@@ -1,5 +1,11 @@
 
+## Serial Logging
+```shell
+screen -L /dev/ttyACM0 9600
+```
+
 ## MFRC522
+
 
 ### Resources
 
