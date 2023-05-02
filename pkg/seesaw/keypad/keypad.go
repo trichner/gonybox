@@ -18,10 +18,6 @@ const (
 // KeyEvent represents a pressed or released key
 type KeyEvent uint8
 
-func NewKeyEvent(b byte) KeyEvent {
-	return KeyEvent(b)
-}
-
 func (k KeyEvent) Edge() Edge {
 	return Edge(k & 0b11)
 }
@@ -57,8 +53,11 @@ func (s *SeesawKeypad) SetKeypadInterrupt(enable bool) error {
 // Read reads pending KeyEvent s from the FIFO
 func (s *SeesawKeypad) Read(buf []KeyEvent) error {
 	//https://github.com/adafruit/Adafruit_Seesaw/blob/master/Adafruit_seesaw.cpp#LL732C21-L732C21
+
+	// use some unsafe magic to avoid copy-ing the entire buffer
 	bytesBuf := *(*[]byte)(unsafe.Pointer(&buf))
-	return s.seesaw.Read(seesaw.SEESAW_KEYPAD_BASE, seesaw.SEESAW_KEYPAD_FIFO, bytesBuf, time.Millisecond)
+
+	return s.seesaw.Read(seesaw.SEESAW_KEYPAD_BASE, seesaw.SEESAW_KEYPAD_FIFO, bytesBuf, 2*time.Millisecond)
 }
 
 // ConfigureKeypad enables or disables a key and edge on the keypad module

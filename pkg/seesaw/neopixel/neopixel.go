@@ -3,6 +3,7 @@ package neopixel
 import (
 	"fmt"
 	"strconv"
+	"time"
 	"trelligo/pkg/seesaw"
 )
 
@@ -13,11 +14,12 @@ func NewRGBW(r, g, b, w uint8) RGBWColor {
 }
 
 type SeesawNeopixel struct {
-	seesaw    *seesaw.Device
-	numLEDs   int
-	pixels    []RGBWColor
-	pin       uint8
-	pixelType PixelType
+	seesaw     *seesaw.Device
+	numLEDs    int
+	pixels     []RGBWColor
+	pin        uint8
+	pixelType  PixelType
+	lastUpdate time.Time
 }
 
 func New(dev *seesaw.Device, pin uint8, numLEDs int, pixelType PixelType) (*SeesawNeopixel, error) {
@@ -100,5 +102,14 @@ func (s *SeesawNeopixel) SetPixelColor(offset uint16, r, g, b, w uint8) error {
 }
 
 func (s *SeesawNeopixel) ShowPixels() error {
+
+	// at most every 300us
+	// https://github.com/adafruit/Adafruit_Seesaw/blob/8a2dc5e0645239cb34e23a4b62c456436b098ab3/seesaw_neopixel.cpp#L109
+	diff := time.Since(s.lastUpdate).Milliseconds()
+	for diff < 300 {
+		time.Sleep(50 * time.Microsecond)
+		diff = time.Since(s.lastUpdate).Milliseconds()
+	}
+
 	return s.seesaw.Write(seesaw.SEESAW_NEOPIXEL_BASE, seesaw.SEESAW_NEOPIXEL_SHOW, nil)
 }

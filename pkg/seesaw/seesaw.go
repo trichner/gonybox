@@ -9,7 +9,8 @@ import (
 
 const DefaultSeesawAddress = 0x49
 
-const defaultDelay = 250 * time.Microsecond
+// empirically determined delay, the one from the official library seems to be too short (250us)
+const defaultDelay = 10 * time.Millisecond
 
 const (
 	seesawHwIdCodeSAMD09  = 0x55 // HW ID code for SAMD09
@@ -29,6 +30,7 @@ func New(addr uint16, bus I2C) *Device {
 	}
 }
 
+// Begin resets and initializes the seesaw chip
 func (d *Device) Begin() error {
 
 	debug.Log("soft reset")
@@ -40,7 +42,7 @@ func (d *Device) Begin() error {
 	debug.Log("wait for hwid")
 	var lastErr error
 	for i := 0; i < 10; i++ {
-		hwid, err := d.readHwId()
+		hwid, err := d.ReadHardwareID()
 		if err != nil {
 			d.hwid = hwid
 			lastErr = nil
@@ -58,7 +60,8 @@ func (d *Device) Begin() error {
 	return nil
 }
 
-func (d *Device) readHwId() (byte, error) {
+// ReadHardwareID reads the ID of the seesaw device
+func (d *Device) ReadHardwareID() (byte, error) {
 	hwid, err := d.ReadRegister(SEESAW_STATUS_BASE, SEESAW_STATUS_HW_ID)
 	if err != nil {
 		return 0, err
@@ -71,10 +74,12 @@ func (d *Device) readHwId() (byte, error) {
 	return 0, errors.New("unknown hardware ID: " + ufmt.ByteToHexString(hwid))
 }
 
+// SoftReset triggers a soft-reset of seesaw
 func (d *Device) SoftReset() error {
 	return d.WriteRegister(SEESAW_STATUS_BASE, SEESAW_STATUS_SWRST, 0xFF)
 }
 
+// WriteRegister writes a single seesaw register
 func (d *Device) WriteRegister(module ModuleBaseAddress, function FunctionAddress, value byte) error {
 	buf := []byte{byte(module), byte(function), value}
 	return d.bus.Tx(d.addr, buf, nil)
