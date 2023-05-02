@@ -9,7 +9,7 @@ import (
 
 const DefaultSeesawAddress = 0x49
 
-const defaultDelay = 250
+const defaultDelay = 250 * time.Microsecond
 
 const (
 	seesawHwIdCodeSAMD09  = 0x55 // HW ID code for SAMD09
@@ -80,24 +80,27 @@ func (d *Device) WriteRegister(module ModuleBaseAddress, function FunctionAddres
 	return d.bus.Tx(d.addr, buf, nil)
 }
 
+// ReadRegister reads a single register from seesaw
 func (d *Device) ReadRegister(module ModuleBaseAddress, function FunctionAddress) (byte, error) {
 	buf := make([]byte, 1)
-	err := d.Read(module, function, buf)
+	err := d.Read(module, function, buf, defaultDelay)
 	if err != nil {
 		return 0, err
 	}
 	return buf[0], nil
 }
 
-func (d *Device) Read(module ModuleBaseAddress, function FunctionAddress, buf []byte) error {
+// Read reads a number of bytes from the device after sending the read command and waiting 'delay'. The delays depend
+// on the module and function and are documented in the seesaw datasheet
+func (d *Device) Read(module ModuleBaseAddress, function FunctionAddress, buf []byte, delay time.Duration) error {
 	prefix := []byte{byte(module), byte(function)}
 	err := d.bus.Tx(d.addr, prefix, nil)
 	if err != nil {
 		return err
 	}
 
-	//give seesaw some time to compute
-	time.Sleep(defaultDelay * time.Millisecond)
+	//see seesaw datasheet
+	time.Sleep(delay)
 
 	return d.bus.Tx(d.addr, nil, buf)
 }

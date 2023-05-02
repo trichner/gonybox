@@ -2,15 +2,12 @@ package main
 
 import (
 	"machine"
-	"strconv"
 	"time"
 	"trelligo/pkg/debug"
 	"trelligo/pkg/dfplayer"
 	"trelligo/pkg/dfplayer/uart"
 	"trelligo/pkg/neotrellis"
-	"trelligo/pkg/seesaw"
 	"trelligo/pkg/seesaw/keypad"
-	"trelligo/pkg/seesaw/neopixel"
 	"trelligo/pkg/shims/rand"
 )
 
@@ -18,7 +15,7 @@ func main() {
 	machine.LED.Configure(machine.PinConfig{Mode: machine.PinOutput})
 	machine.InitSerial()
 
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 3)
 
 	debug.Log("setup Dfplayer")
 	player, err := setupDfplayer()
@@ -47,39 +44,18 @@ func main() {
 		fatal(err.Error())
 	}
 
-	debug.Log("seesaw new")
-	seesawDev := seesaw.New(neotrellis.DefaultNeotrellisAddress, i2c)
-
-	debug.Log("seesaw begin")
-	err = seesawDev.Begin()
+	debug.Log("initializing neotrellis")
+	nt, err := neotrellis.New(i2c)
 	if err != nil {
 		fatal(err.Error())
 	}
-
-	debug.Log("initializing neopixels")
-	// https://github.com/adafruit/Adafruit_Seesaw/blob/8a2dc5e0645239cb34e23a4b62c456436b098ab3/Adafruit_NeoTrellis.cpp#L10
-	const NeoTrellisSeesawPin = 3
-	const nPixels = 16
-	pix, err := neopixel.New(seesawDev, NeoTrellisSeesawPin, nPixels, neopixel.NEO_GRB)
-	if err != nil {
-		fatal(err.Error())
-	}
-
-	debug.Log("initializing keypad")
-	kpd := keypad.New(seesawDev)
 
 	debug.Log("enabling keys")
-	for i := 0; i < nPixels; i++ {
-		err := kpd.ConfigureKeypad(uint8(i), keypad.EdgeRising, true)
+	for i := uint8(0); i < 16; i++ {
+		err := nt.ConfigureKeypad(i, keypad.EdgeRising, true)
 		if err != nil {
 			fatal(err.Error())
 		}
-	}
-
-	debug.Log("enable keypad interrupt")
-	err = kpd.SetKeypadInterrupt(true)
-	if err != nil {
-		fatal(err.Error())
 	}
 
 	hi, err := machine.GetRNG()
@@ -94,34 +70,23 @@ func main() {
 	prng := rand.New(rsrc)
 	for {
 		debug.Log("turning on neopixels")
-		for i := 0; i < nPixels; i++ {
+		for i := 0; i < 16; i++ {
 			c := prng.Uint32()
-			err := pix.SetPixelColor(uint16(i), byte(c), byte(c>>8), byte(c>>16), 0)
+			err := nt.SetPixelColor(uint16(i), byte(c), byte(c>>8), byte(c>>16), 0)
 			if err != nil {
-				fatal(err.Error())
+				warn("setpixel " + err.Error())
 			}
 		}
 		time.Sleep(100 * time.Millisecond)
-		debug.Log("showing")
-		err = pix.ShowPixels()
+		err = nt.ShowPixels()
 		if err != nil {
-			fatal(err.Error())
+			warn("showpixels " + err.Error())
 		}
-		debug.Log("done!")
 
 		debug.Log("reading keypresses")
-		n, err := kpd.KeyEventCount()
+		err := nt.ProcessKeyEvents()
 		if err != nil {
-			fatal(err.Error())
-		}
-		debug.Log("events: " + strconv.Itoa(int(n)))
-		events := make([]keypad.KeyEvent, n)
-		err = kpd.Read(events)
-		if err != nil {
-			fatal(err.Error())
-		}
-		for _, e := range events {
-			debug.Log("keypress: " + strconv.Itoa(int(e.Key())) + " (" + strconv.Itoa(int(e.Edge())) + ")")
+			warn("readkeys " + err.Error())
 		}
 	}
 
@@ -159,4 +124,8 @@ func fatal(s string) {
 		machine.LED.Low()
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+func warn(s string) {
+	debug.Log("WARN: " + s)
 }

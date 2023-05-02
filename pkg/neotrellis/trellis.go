@@ -29,25 +29,39 @@ type Device struct {
 	events []keypad.KeyEvent
 }
 
-func New(dev *seesaw.Device) (*Device, error) {
+func New(dev I2C) (*Device, error) {
 
-	pix, err := neopixel.New(dev, neoPixelPin, keyCount, neoPixelType)
+	ss := seesaw.New(DefaultNeotrellisAddress, dev)
+	if err := ss.Begin(); err != nil {
+		return nil, err
+	}
+
+	pix, err := neopixel.New(ss, neoPixelPin, keyCount, neoPixelType)
 	if err != nil {
 		return nil, err
 	}
 
-	kbd := keypad.New(dev)
+	kbd := keypad.New(ss)
 	err = kbd.SetKeypadInterrupt(true)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Device{
-		dev:    dev,
+		dev:    ss,
 		pix:    pix,
 		kpd:    kbd,
 		events: make([]keypad.KeyEvent, 16),
 	}, nil
+}
+
+// TODO: translate to x/y
+func (d *Device) SetPixelColor(offset uint16, r, g, b, w uint8) error {
+	return d.pix.SetPixelColor(offset, r, g, b, w)
+}
+
+func (d *Device) ShowPixels() error {
+	return d.pix.ShowPixels()
 }
 
 // ConfigureKeypad enables or disables a key and edge on the keypad module

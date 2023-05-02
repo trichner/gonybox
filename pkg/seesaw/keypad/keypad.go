@@ -1,6 +1,7 @@
 package keypad
 
 import (
+	"time"
 	"trelligo/pkg/seesaw"
 	"unsafe"
 )
@@ -39,9 +40,10 @@ func New(dev *seesaw.Device) *SeesawKeypad {
 
 // KeyEventCount returns the number of pending KeyEvent s in the FIFO queue
 func (s *SeesawKeypad) KeyEventCount() (uint8, error) {
-	//NOTE: add 500ms delay?
 	//https://github.com/adafruit/Adafruit_Seesaw/blob/master/Adafruit_seesaw.cpp#L721
-	return s.seesaw.ReadRegister(seesaw.SEESAW_KEYPAD_BASE, seesaw.SEESAW_KEYPAD_COUNT)
+	buf := make([]byte, 1)
+	err := s.seesaw.Read(seesaw.SEESAW_KEYPAD_BASE, seesaw.SEESAW_KEYPAD_COUNT, buf, 500*time.Microsecond)
+	return buf[0], err
 }
 
 // SetKeypadInterrupt enables or disables interrupts for key events
@@ -54,10 +56,9 @@ func (s *SeesawKeypad) SetKeypadInterrupt(enable bool) error {
 
 // Read reads pending KeyEvent s from the FIFO
 func (s *SeesawKeypad) Read(buf []KeyEvent) error {
-	//NOTE: add 1000ms delay?
 	//https://github.com/adafruit/Adafruit_Seesaw/blob/master/Adafruit_seesaw.cpp#LL732C21-L732C21
 	bytesBuf := *(*[]byte)(unsafe.Pointer(&buf))
-	return s.seesaw.Read(seesaw.SEESAW_KEYPAD_BASE, seesaw.SEESAW_KEYPAD_FIFO, bytesBuf)
+	return s.seesaw.Read(seesaw.SEESAW_KEYPAD_BASE, seesaw.SEESAW_KEYPAD_FIFO, bytesBuf, time.Millisecond)
 }
 
 // ConfigureKeypad enables or disables a key and edge on the keypad module
