@@ -3,9 +3,7 @@ package neopixel
 import (
 	"fmt"
 	"strconv"
-	"trelligo/pkg/debug"
 	"trelligo/pkg/seesaw"
-	"trelligo/pkg/shims/ufmt"
 )
 
 type RGBWColor [4]uint8
@@ -98,7 +96,6 @@ func (s *SeesawNeopixel) SetPixelColor(offset uint16, r, g, b, w uint8) error {
 	byteOffset := offset * uint16(encodedLen)
 	buf[0] = uint8(byteOffset >> 8)
 	buf[1] = uint8(byteOffset)
-	debug.Log("pixel: " + ufmt.SliceToHexString(buf))
 	return s.seesaw.Write(seesaw.SEESAW_NEOPIXEL_BASE, seesaw.SEESAW_NEOPIXEL_BUF, buf)
 }
 

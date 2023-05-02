@@ -2,12 +2,14 @@ package main
 
 import (
 	"machine"
+	"strconv"
 	"time"
 	"trelligo/pkg/debug"
 	"trelligo/pkg/dfplayer"
 	"trelligo/pkg/dfplayer/uart"
 	"trelligo/pkg/neotrellis"
 	"trelligo/pkg/seesaw"
+	"trelligo/pkg/seesaw/keypad"
 	"trelligo/pkg/seesaw/neopixel"
 	"trelligo/pkg/shims/rand"
 )
@@ -63,6 +65,23 @@ func main() {
 		fatal(err.Error())
 	}
 
+	debug.Log("initializing keypad")
+	kpd := keypad.New(seesawDev)
+
+	debug.Log("enabling keys")
+	for i := 0; i < nPixels; i++ {
+		err := kpd.ConfigureKeypad(uint8(i), keypad.EdgeRising, true)
+		if err != nil {
+			fatal(err.Error())
+		}
+	}
+
+	debug.Log("enable keypad interrupt")
+	err = kpd.SetKeypadInterrupt(true)
+	if err != nil {
+		fatal(err.Error())
+	}
+
 	hi, err := machine.GetRNG()
 	if err != nil {
 		fatal(err.Error())
@@ -89,6 +108,21 @@ func main() {
 			fatal(err.Error())
 		}
 		debug.Log("done!")
+
+		debug.Log("reading keypresses")
+		n, err := kpd.KeyEventCount()
+		if err != nil {
+			fatal(err.Error())
+		}
+		debug.Log("events: " + strconv.Itoa(int(n)))
+		events := make([]keypad.KeyEvent, n)
+		err = kpd.Read(events)
+		if err != nil {
+			fatal(err.Error())
+		}
+		for _, e := range events {
+			debug.Log("keypress: " + strconv.Itoa(int(e.Key())) + " (" + strconv.Itoa(int(e.Edge())) + ")")
+		}
 	}
 
 	for {
