@@ -15,7 +15,7 @@ func NewSource(seed int64) *XorShift64Star {
 	return &tmpxs
 }
 
-// Seed use the provvided seed value to init XorShift64Star internal state.
+// Seed use the provided seed value to init XorShift64Star internal state.
 func (x *XorShift64Star) Seed(seed int64) {
 	x.s = uint64(seed)
 }
