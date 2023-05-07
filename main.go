@@ -2,6 +2,7 @@ package main
 
 import (
 	"machine"
+	"strconv"
 	"time"
 	"trelligo/pkg/debug"
 	"trelligo/pkg/dfplayer"
@@ -31,14 +32,14 @@ func main() {
 	}
 
 	debug.Log("initializing neotrellis")
-	nt, err := neotrellis.New(i2c)
+	nt, err := neotrellis.New(i2c, 0)
 	if err != nil {
 		fatal(err.Error())
 	}
 
 	debug.Log("enabling keys")
 	for i := uint8(0); i < 16; i++ {
-		err := nt.ConfigureKeypad(i, keypad.EdgeRising, true)
+		err := nt.ConfigureKeypad(i/4, i%4, keypad.EdgeRising, true)
 		if err != nil {
 			fatal(err.Error())
 		}
@@ -50,14 +51,20 @@ func main() {
 		fatal(err.Error())
 	}
 
-	for {
-		for i := 0; i < 16; i++ {
-			c := prng.Uint32()
-			err := nt.SetPixelColor(uint16(i), byte(c), byte(c>>8), byte(c>>16), 0)
-			if err != nil {
-				warn("setpixel " + err.Error())
-			}
+	nt.SetKeyHandleFunc(func(x, y uint8, e keypad.Edge) error {
+		debug.Log("keypress: " + strconv.Itoa(int(x)) + "/" + strconv.Itoa(int(y)) + " (" + strconv.Itoa(int(e)) + ")")
+		c := prng.Uint32()
+		return nt.SetPixelColor(x, y, byte(0), byte(c>>8), byte(c>>16))
+	})
+
+	for i := uint8(0); i < 16; i++ {
+		err := nt.SetPixelColor(i/4, i%4, 0, 0, 0)
+		if err != nil {
+			warn("setpixel " + err.Error())
 		}
+	}
+
+	for {
 		err = nt.ShowPixels()
 		if err != nil {
 			warn("showpixels " + err.Error())

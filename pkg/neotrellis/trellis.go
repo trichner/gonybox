@@ -1,37 +1,35 @@
 package neotrellis
 
 import (
-	"strconv"
-	"trelligo/pkg/debug"
 	"trelligo/pkg/seesaw"
 	"trelligo/pkg/seesaw/keypad"
 	"trelligo/pkg/seesaw/neopixel"
 )
 
-const DefaultNeotrellisAddress = 0x2E
+// DefaultNeoTrellisAddress is the i2c address of a NeoTrellis board without any changes to its address
+// The address can be changed with solder bridges, allowing daisy-chaining multiple NeoTrellis boards.
+const DefaultNeoTrellisAddress = 0x2E
 const neoPixelPin = 3
 const neoPixelType = neopixel.NEO_GRB
-const rowCount = 4
-const columnCount = 4
-const keyCount = rowCount * columnCount
-
-func seesawKeyToNeoTrellis(x uint8) uint8 {
-	return ((x)/8)*4 + ((x) % 8)
-}
-func neoTrellisKeyToSeesawKey(x uint8) uint8 {
-	return ((x)/4)*8 + ((x) % 4)
-}
+const yCount = 4
+const xCount = 4
+const keyCount = yCount * xCount
 
 type Device struct {
-	dev    *seesaw.Device
-	pix    *neopixel.SeesawNeopixel
-	kpd    *keypad.SeesawKeypad
-	events []keypad.KeyEvent
+	dev        *seesaw.Device
+	pix        *neopixel.SeesawNeopixel
+	kpd        *keypad.SeesawKeypad
+	events     []keypad.KeyEvent
+	keyHandler func(x, y uint8, edge keypad.Edge) error
 }
 
-func New(dev I2C) (*Device, error) {
+func New(dev I2C, addr uint16) (*Device, error) {
 
-	ss := seesaw.New(DefaultNeotrellisAddress, dev)
+	if addr == 0 {
+		addr = DefaultNeoTrellisAddress
+	}
+
+	ss := seesaw.New(addr, dev)
 	if err := ss.Begin(); err != nil {
 		return nil, err
 	}
@@ -55,18 +53,31 @@ func New(dev I2C) (*Device, error) {
 	}, nil
 }
 
-// TODO: translate to x/y
-func (d *Device) SetPixelColor(offset uint16, r, g, b, w uint8) error {
-	return d.pix.SetPixelColor(offset, r, g, b, w)
+// SetPixelColor sets the color of a pixel at position x/y
+//
+// Note: ShowPixels MUST be called to actually show the updated color.
+func (d *Device) SetPixelColor(x, y uint8, r, g, b uint8) error {
+	// `w` is always 0, the NeoTrellis only has RGB NeoPixels
+	return d.pix.SetPixelColor(newXy(x, y).neoPixel(), r, g, b, 0)
 }
 
+// ShowPixels instructs the NeoPixel buffer to update and display the set colors
 func (d *Device) ShowPixels() error {
 	return d.pix.ShowPixels()
 }
 
-// ConfigureKeypad enables or disables a key and edge on the keypad module
-func (d *Device) ConfigureKeypad(key uint8, edge keypad.Edge, enable bool) error {
-	return d.kpd.ConfigureKeypad(neoTrellisKeyToSeesawKey(key), edge, enable)
+// ConfigureKeypad enables or disables a key and edge on the keypad module. Events can be handled by setting a handler
+// with SetKeyHandleFunc.
+func (d *Device) ConfigureKeypad(x, y uint8, edge keypad.Edge, enable bool) error {
+	return d.kpd.ConfigureKeypad(newXy(x, y).seesawKey(), edge, enable)
+}
+
+// SetKeyHandleFunc sets a callback for key events
+//
+// Note: In order for the handler to be called, the keypads MUST be configured via ConfigureKeypad and the events
+// MUST be processed via ProcessKeyEvents.
+func (d *Device) SetKeyHandleFunc(handler func(x, y uint8, e keypad.Edge) error) {
+	d.keyHandler = handler
 }
 
 // ProcessKeyEvents reads pending keypad.KeyEvent s from the FIFO and processes them
@@ -83,9 +94,17 @@ func (d *Device) ProcessKeyEvents() error {
 	if err != nil {
 		return err
 	}
+
+	if d.keyHandler == nil {
+		return nil
+	}
+
 	for _, e := range buf {
-		key := seesawKeyToNeoTrellis(e.Key())
-		debug.Log("keypress: " + strconv.Itoa(int(key)) + " (" + strconv.Itoa(int(e.Edge())) + ")")
+		p := newXyFromSeesawKey(e.Key())
+		err := d.keyHandler(p.X(), p.Y(), e.Edge())
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
