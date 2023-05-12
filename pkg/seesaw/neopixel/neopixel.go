@@ -7,109 +7,175 @@ import (
 	"trelligo/pkg/seesaw"
 )
 
-type RGBWColor [4]uint8
+// seesawWriteDelay the seesaw is quite timing sensitive and times out if not given enough time,
+// this is an empirically determined delay that seems to have good results
+const seesawWriteDelay = time.Millisecond * 10
 
-func NewRGBW(r, g, b, w uint8) RGBWColor {
-	return [4]uint8{r, g, b, w}
+// RGBW represents the RGBW color of an LED.
+type RGBW struct {
+	R, G, B, W uint8
 }
 
-type SeesawNeopixel struct {
-	seesaw     *seesaw.Device
-	numLEDs    int
-	pixels     []RGBWColor
-	pin        uint8
-	pixelType  PixelType
-	lastUpdate time.Time
+type Device struct {
+	seesaw          *seesaw.Device
+	ledCount        int
+	pin             uint8
+	pixelType       PixelType
+	lastOperationAt time.Time
 }
 
-func New(dev *seesaw.Device, pin uint8, numLEDs int, pixelType PixelType) (*SeesawNeopixel, error) {
+func New(dev *seesaw.Device, pin uint8, ledCount int, pixelType PixelType) (*Device, error) {
 
-	pixel := &SeesawNeopixel{
-		seesaw: dev,
+	pixel := &Device{
+		seesaw:    dev,
+		ledCount:  ledCount,
+		pin:       pin,
+		pixelType: pixelType,
 	}
 
-	err := pixel.updatePin(pin)
+	if !pixel.checkBufferLength(ledCount) {
+		return nil, fmt.Errorf("invalid LED count: %d", ledCount)
+	}
+
+	time.Sleep(seesawWriteDelay)
+
+	err := pixel.setupPin()
 	if err != nil {
-		return nil, fmt.Errorf("failed to update seesaw NeoPixel pin: %w", err)
+		return nil, fmt.Errorf("failed to update NeoPixel pin %d: %w", pin, err)
 	}
 
-	err = pixel.setNumberOfLEDs(numLEDs)
+	time.Sleep(seesawWriteDelay)
+
+	err = pixel.setupLedCount()
 	if err != nil {
-		return nil, fmt.Errorf("failed to update LED count: %w", err)
+		return nil, fmt.Errorf("failed to update LED count %d: %w", ledCount, err)
 	}
 
-	err = pixel.updatePixelType(pixelType)
+	time.Sleep(seesawWriteDelay)
+
+	err = pixel.setupSpeed()
 	if err != nil {
 		return nil, fmt.Errorf("failed to update pixel type: %w", err)
 	}
 
+	time.Sleep(seesawWriteDelay)
+
 	return pixel, nil
 }
 
-func (s *SeesawNeopixel) setNumberOfLEDs(n int) error {
+func (s *Device) setupLedCount() error {
 
-	s.numLEDs = n
-	s.reinitLeds()
-
-	lenBytes := calculateBufferLength(n, s.pixelType)
+	lenBytes := calculateBufferLength(s.ledCount, s.pixelType)
 	buf := []byte{byte(lenBytes >> 8), byte(lenBytes & 0xFF)}
-	return s.seesaw.Write(seesaw.SEESAW_NEOPIXEL_BASE, seesaw.SEESAW_NEOPIXEL_BUF_LENGTH, buf)
+	return s.seesaw.Write(seesaw.ModuleNeoPixelBase, seesaw.FunctionNeopixelBufLength, buf)
 }
 
 func calculateBufferLength(ledCount int, pixelType PixelType) int {
 	return ledCount * pixelType.EncodedLen()
 }
 
-func (s *SeesawNeopixel) reinitLeds() {
-	s.pixels = make([]RGBWColor, s.numLEDs)
-}
-
-func (s *SeesawNeopixel) updatePixelType(t PixelType) error {
-	old := s.pixelType
-	s.pixelType = t
-
-	if old.IsRGBW() != t.IsRGBW() {
-		//byte-size changed, re-init buffer
-		s.reinitLeds()
-	}
-
+func (s *Device) setupSpeed() error {
 	speed := byte(0)
-	if t.Is800KHz() {
+	if s.pixelType.Is800KHz() {
 		speed = 1
 	}
-
-	return s.seesaw.WriteRegister(seesaw.SEESAW_NEOPIXEL_BASE, seesaw.SEESAW_NEOPIXEL_SPEED, speed)
+	return s.seesaw.WriteRegister(seesaw.ModuleNeoPixelBase, seesaw.FunctionNeopixelSpeed, speed)
 }
 
-func (s *SeesawNeopixel) updatePin(pin uint8) error {
-	s.pin = pin
-	return s.seesaw.WriteRegister(seesaw.SEESAW_NEOPIXEL_BASE, seesaw.SEESAW_NEOPIXEL_PIN, pin)
+func (s *Device) setupPin() error {
+	return s.seesaw.WriteRegister(seesaw.ModuleNeoPixelBase, seesaw.FunctionNeopixelPin, s.pin)
 }
 
-func (s *SeesawNeopixel) SetPixelColor(offset uint16, r, g, b, w uint8) error {
+// WriteColorAtOffset updates the color for a single LED at the given offset
+func (s *Device) WriteColorAtOffset(offset uint16, color RGBW) error {
 
 	encodedLen := s.pixelType.EncodedLen()
 
-	buf := make([]byte, 2+encodedLen)
-	l := s.pixelType.PutRGBW(buf[2:], r, g, b, w)
+	buf := make([]byte, encodedLen)
+	l := s.pixelType.PutRGBW(buf, color)
 	if l != encodedLen {
 		panic("unexpected encoded length: " + strconv.Itoa(l) + " != " + strconv.Itoa(encodedLen))
 	}
 	byteOffset := offset * uint16(encodedLen)
-	buf[0] = uint8(byteOffset >> 8)
-	buf[1] = uint8(byteOffset)
-	return s.seesaw.Write(seesaw.SEESAW_NEOPIXEL_BASE, seesaw.SEESAW_NEOPIXEL_BUF, buf)
+	return s.writeBuffer(byteOffset, buf)
 }
 
-func (s *SeesawNeopixel) ShowPixels() error {
+// WriteColors writes the given colors to the seesaws NeoPixel buffer
+func (s *Device) WriteColors(buf []RGBW) error {
+
+	if len(buf) > s.ledCount {
+		return fmt.Errorf("buffer too big, only %d LEDs setup: %d > %d", s.ledCount, len(buf), s.ledCount)
+	}
+
+	encodedLen := s.pixelType.EncodedLen()
+
+	tx := make([]byte, encodedLen*len(buf))
+	pos := 0
+	for _, c := range buf {
+		w := tx[pos:]
+		n := s.pixelType.PutRGBW(w, c)
+		pos += n
+	}
+
+	// the seesaw can at most deal with 30 bytes according to the datasheet, but
+	// crashes after 29 bytes. So we only send 29 data bytes at a time
+	const chunkSize = 29
+
+	// write the data chunk-by-chunk
+	for i := 0; i < len(tx); i += chunkSize {
+		toSend := tx[i:min(i+chunkSize, len(tx))]
+		err := s.writeBuffer(uint16(i), toSend)
+		if err != nil {
+			return fmt.Errorf("failed to write NeoPixel buffer offset %d: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Device) writeBuffer(byteOffset uint16, buf []byte) error {
+	tx := make([]byte, 2+len(buf))
+	tx[0] = uint8(byteOffset >> 8)
+	tx[1] = uint8(byteOffset)
+	copy(tx[2:], buf)
+	return s.seesaw.Write(seesaw.ModuleNeoPixelBase, seesaw.FunctionNeopixelBuf, tx)
+}
+
+func (s *Device) ShowPixels() error {
 
 	// at most every 300us
 	// https://github.com/adafruit/Adafruit_Seesaw/blob/8a2dc5e0645239cb34e23a4b62c456436b098ab3/seesaw_neopixel.cpp#L109
-	diff := time.Since(s.lastUpdate).Milliseconds()
-	for diff < 300 {
+	s.waitSinceLastOperation(time.Microsecond * 300)
+
+	return s.seesaw.Write(seesaw.ModuleNeoPixelBase, seesaw.FunctionNeopixelShow, nil)
+}
+
+func (s *Device) waitSinceLastOperation(d time.Duration) {
+	diff := time.Since(s.lastOperationAt)
+	for diff < d {
 		time.Sleep(50 * time.Microsecond)
-		diff = time.Since(s.lastUpdate).Milliseconds()
+		diff = time.Since(s.lastOperationAt)
+	}
+}
+
+// checkBufferLength checks whether the length is supported by seesaw. This depends on the pixel type.
+// The seesaw has built in NeoPixel support for up to 170 RGB or 127 RGBW pixels. The
+// output pin as well as the communication protocol frequency are configurable. Note:
+// older firmware is limited to 63 pixels max.
+func (s *Device) checkBufferLength(l int) bool {
+	const maxRgbwPixelCount = 127
+	const maxRgbPixelCount = 170
+
+	if s.pixelType.IsRGBW() {
+		return l <= maxRgbwPixelCount
 	}
 
-	return s.seesaw.Write(seesaw.SEESAW_NEOPIXEL_BASE, seesaw.SEESAW_NEOPIXEL_SHOW, nil)
+	return l <= maxRgbPixelCount
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

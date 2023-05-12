@@ -1,10 +1,8 @@
 package seesaw
 
 import (
-	"errors"
+	"fmt"
 	"time"
-	"trelligo/pkg/debug"
-	"trelligo/pkg/shims/ufmt"
 )
 
 const DefaultSeesawAddress = 0x49
@@ -33,28 +31,28 @@ func New(addr uint16, bus I2C) *Device {
 // Begin resets and initializes the seesaw chip
 func (d *Device) Begin() error {
 
-	debug.Log("soft reset")
 	err := d.SoftReset()
 	if err != nil {
 		return err
 	}
 
-	debug.Log("wait for hwid")
+	time.Sleep(defaultDelay)
+
 	var lastErr error
-	for i := 0; i < 10; i++ {
+	tries := 0
+	for ; tries < 20; tries++ {
 		hwid, err := d.ReadHardwareID()
-		if err != nil {
+		if err == nil {
 			d.hwid = hwid
 			lastErr = nil
 			break
 		}
-		debug.Log("fail: " + err.Error())
 		lastErr = err
 		time.Sleep(10 * time.Millisecond)
 	}
 
 	if lastErr != nil {
-		return lastErr
+		return fmt.Errorf("failed to read hardware ID after reset, tryed %d times: %w", tries, lastErr)
 	}
 
 	return nil
@@ -62,7 +60,7 @@ func (d *Device) Begin() error {
 
 // ReadHardwareID reads the ID of the seesaw device
 func (d *Device) ReadHardwareID() (byte, error) {
-	hwid, err := d.ReadRegister(SEESAW_STATUS_BASE, SEESAW_STATUS_HW_ID)
+	hwid, err := d.ReadRegister(ModuleStatusBase, FunctionStatusHwId)
 	if err != nil {
 		return 0, err
 	}
@@ -71,12 +69,23 @@ func (d *Device) ReadHardwareID() (byte, error) {
 		return hwid, nil
 	}
 
-	return 0, errors.New("unknown hardware ID: " + ufmt.ByteToHexString(hwid))
+	return 0, fmt.Errorf("unknown hardware ID: %0X", hwid)
+}
+
+// ReadVersion reads the version bytes from the device (undocumented in the datasheet)
+func (d *Device) ReadVersion() (uint32, error) {
+
+	buf := make([]byte, 4)
+	err := d.Read(ModuleStatusBase, FunctionStatusVersion, buf, defaultDelay)
+	if err != nil {
+		return 0, err
+	}
+	return (uint32(buf[0]) << 24) | (uint32(buf[1]) << 16) | (uint32(buf[2]) << 8) | uint32(buf[3]), nil
 }
 
 // SoftReset triggers a soft-reset of seesaw
 func (d *Device) SoftReset() error {
-	return d.WriteRegister(SEESAW_STATUS_BASE, SEESAW_STATUS_SWRST, 0xFF)
+	return d.WriteRegister(ModuleStatusBase, FunctionStatusSwrst, 0xFF)
 }
 
 // WriteRegister writes a single seesaw register

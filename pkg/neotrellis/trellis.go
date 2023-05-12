@@ -10,14 +10,14 @@ import (
 // The address can be changed with solder bridges, allowing daisy-chaining multiple NeoTrellis boards.
 const DefaultNeoTrellisAddress = 0x2E
 const neoPixelPin = 3
-const neoPixelType = neopixel.NEO_GRB
+const neoPixelType = neopixel.PixelTypeGRB
 const yCount = 4
 const xCount = 4
 const keyCount = yCount * xCount
 
 type Device struct {
 	dev        *seesaw.Device
-	pix        *neopixel.SeesawNeopixel
+	pix        *neopixel.Device
 	kpd        *keypad.SeesawKeypad
 	events     []keypad.KeyEvent
 	keyHandler func(x, y uint8, edge keypad.Edge) error
@@ -58,7 +58,7 @@ func New(dev I2C, addr uint16) (*Device, error) {
 // Note: ShowPixels MUST be called to actually show the updated color.
 func (d *Device) SetPixelColor(x, y uint8, r, g, b uint8) error {
 	// `w` is always 0, the NeoTrellis only has RGB NeoPixels
-	return d.pix.SetPixelColor(newXy(x, y).neoPixel(), r, g, b, 0)
+	return d.pix.WriteColorAtOffset(newXy(x, y).neoPixel(), neopixel.RGBW{r, g, b, 0})
 }
 
 // ShowPixels instructs the NeoPixel buffer to update and display the set colors

@@ -9,7 +9,7 @@ package neopixel
 // and blue primaries (plus white, if present) in the data stream.
 //
 // Below an easier-to-use named version for
-// each permutation.  e.g. NEO_GRB indicates a NeoPixel-compatible
+// each permutation.  e.g. PixelTypeGRB indicates a NeoPixel-compatible
 // device expecting three bytes per pixel, with the first byte
 // containing the green value, second containing red and third
 // containing blue.  The in-memory representation of a chain of
@@ -29,26 +29,32 @@ package neopixel
 //	0bRRRRGGBB for RGB
 type PixelType uint16
 
+// BlueOffset returns the byte offset for the blue component
 func (p PixelType) BlueOffset() int {
 	return int(byte(p) & 0b11)
 }
 
+// GreenOffset returns the byte offset for the green component
 func (p PixelType) GreenOffset() int {
 	return int((byte(p) >> 2) & 0b11)
 }
 
+// RedOffset returns the byte offset for the red component
 func (p PixelType) RedOffset() int {
 	return int((byte(p) >> 4) & 0b11)
 }
 
+// WhiteOffset returns the byte offset for the white component
 func (p PixelType) WhiteOffset() int {
 	return int((byte(p) >> 6) & 0b11)
 }
 
+// IsRGBW returns true if the pixel has a W component, false otherwise.
 func (p PixelType) IsRGBW() bool {
 	return p.RedOffset() != p.WhiteOffset()
 }
 
+// EncodedLen returns the number of bytes this pixel type needs in encoded form
 func (p PixelType) EncodedLen() int {
 	if p.IsRGBW() {
 		return 4
@@ -56,70 +62,72 @@ func (p PixelType) EncodedLen() int {
 	return 3
 }
 
+// Is800KHz whether the pixel operates at 800 Khz or not. Implicitly runs at 400 Khz otherwise
 func (p PixelType) Is800KHz() bool {
-	return (uint16(p) & 0xFF00) == NEO_KHZ800
+	return (uint16(p) & 0xFf00) == SpeedKHz800
 }
 
-func (p PixelType) PutRGBW(buf []byte, r, g, b, w uint8) int {
-	buf[p.RedOffset()] = r
-	buf[p.GreenOffset()] = g
-	buf[p.BlueOffset()] = b
+// PutRGBW encodes color components into a PixelType and appends it to a buffer. Depending on the PixelType it will
+// write a different amount of bytes, the count of which will be returned.
+func (p PixelType) PutRGBW(buf []byte, color RGBW) int {
+	buf[p.RedOffset()] = color.R
+	buf[p.GreenOffset()] = color.G
+	buf[p.BlueOffset()] = color.B
 	if !p.IsRGBW() {
 		// if we don't have white, skip it
 		return 3
 	}
-	buf[p.WhiteOffset()] = w
+	buf[p.WhiteOffset()] = color.W
 	return 4
 }
 
-// RGB NeoPixel permutations; white and red offsets are always same
+// Rgb NeoPixel permutations; white and red offsets are always same
 // Offset:                       W          R          G          B
 const (
-	NEO_RGB PixelType = (0 << 6) | (0 << 4) | (1 << 2) | (2)
-	NEO_RBG PixelType = (0 << 6) | (0 << 4) | (2 << 2) | (1)
-	NEO_GRB PixelType = (1 << 6) | (1 << 4) | (0 << 2) | (2)
-	NEO_GBR PixelType = (2 << 6) | (2 << 4) | (0 << 2) | (1)
-	NEO_BRG PixelType = (1 << 6) | (1 << 4) | (2 << 2) | (0)
-	NEO_BGR PixelType = (2 << 6) | (2 << 4) | (1 << 2) | (0)
+	PixelTypeRGB PixelType = (0 << 6) | (0 << 4) | (1 << 2) | (2)
+	PixelTypeRBG PixelType = (0 << 6) | (0 << 4) | (2 << 2) | (1)
+	PixelTypeGRB PixelType = (1 << 6) | (1 << 4) | (0 << 2) | (2)
+	PixelTypeGBR PixelType = (2 << 6) | (2 << 4) | (0 << 2) | (1)
+	PixelTypeBRG PixelType = (1 << 6) | (1 << 4) | (2 << 2) | (0)
+	PixelTypeBGR PixelType = (2 << 6) | (2 << 4) | (1 << 2) | (0)
 )
 
-// RGBW NeoPixel permutations; all 4 offsets are distinct
+// Rgbw NeoPixel permutations; all 4 offsets are distinct
 // Offset:                        W          R          G          B
 const (
-	NEO_WRGB PixelType = (0 << 6) | (1 << 4) | (2 << 2) | (3)
-	NEO_WRBG PixelType = (0 << 6) | (1 << 4) | (3 << 2) | (2)
-	NEO_WGRB PixelType = (0 << 6) | (2 << 4) | (1 << 2) | (3)
-	NEO_WGBR PixelType = (0 << 6) | (3 << 4) | (1 << 2) | (2)
-	NEO_WBRG PixelType = (0 << 6) | (2 << 4) | (3 << 2) | (1)
-	NEO_WBGR PixelType = (0 << 6) | (3 << 4) | (2 << 2) | (1)
-	//
-	NEO_RWGB PixelType = (1 << 6) | (0 << 4) | (2 << 2) | (3)
-	NEO_RWBG PixelType = (1 << 6) | (0 << 4) | (3 << 2) | (2)
-	NEO_RGWB PixelType = (2 << 6) | (0 << 4) | (1 << 2) | (3)
-	NEO_RGBW PixelType = (3 << 6) | (0 << 4) | (1 << 2) | (2)
-	NEO_RBWG PixelType = (2 << 6) | (0 << 4) | (3 << 2) | (1)
-	NEO_RBGW PixelType = (3 << 6) | (0 << 4) | (2 << 2) | (1)
-	//
-	NEO_GWRB PixelType = (1 << 6) | (2 << 4) | (0 << 2) | (3)
-	NEO_GWBR PixelType = (1 << 6) | (3 << 4) | (0 << 2) | (2)
-	NEO_GRWB PixelType = (2 << 6) | (1 << 4) | (0 << 2) | (3)
-	NEO_GRBW PixelType = (3 << 6) | (1 << 4) | (0 << 2) | (2)
-	NEO_GBWR PixelType = (2 << 6) | (3 << 4) | (0 << 2) | (1)
-	NEO_GBRW PixelType = (3 << 6) | (2 << 4) | (0 << 2) | (1)
-	//
-	NEO_BWRG PixelType = (1 << 6) | (2 << 4) | (3 << 2) | (0)
-	NEO_BWGR PixelType = (1 << 6) | (3 << 4) | (2 << 2) | (0)
-	NEO_BRWG PixelType = (2 << 6) | (1 << 4) | (3 << 2) | (0)
-	NEO_BRGW PixelType = (3 << 6) | (1 << 4) | (2 << 2) | (0)
-	NEO_BGWR PixelType = (2 << 6) | (3 << 4) | (1 << 2) | (0)
-	NEO_BGRW PixelType = (3 << 6) | (2 << 4) | (1 << 2) | (0)
+	PixelTypeWRGB PixelType = (0 << 6) | (1 << 4) | (2 << 2) | (3)
+	PixelTypeWRBG PixelType = (0 << 6) | (1 << 4) | (3 << 2) | (2)
+	PixelTypeWGRB PixelType = (0 << 6) | (2 << 4) | (1 << 2) | (3)
+	PixelTypeWGBR PixelType = (0 << 6) | (3 << 4) | (1 << 2) | (2)
+	PixelTypeWBRG PixelType = (0 << 6) | (2 << 4) | (3 << 2) | (1)
+	PixelTypeWBGR PixelType = (0 << 6) | (3 << 4) | (2 << 2) | (1)
+
+	PixelTypeRWGB PixelType = (1 << 6) | (0 << 4) | (2 << 2) | (3)
+	PixelTypeRWBG PixelType = (1 << 6) | (0 << 4) | (3 << 2) | (2)
+	PixelTypeRGWB PixelType = (2 << 6) | (0 << 4) | (1 << 2) | (3)
+	PixelTypeRGBW PixelType = (3 << 6) | (0 << 4) | (1 << 2) | (2)
+	PixelTypeRBWG PixelType = (2 << 6) | (0 << 4) | (3 << 2) | (1)
+	PixelTypeRBGW PixelType = (3 << 6) | (0 << 4) | (2 << 2) | (1)
+
+	PixelTypeGWRB PixelType = (1 << 6) | (2 << 4) | (0 << 2) | (3)
+	PixelTypeGWBR PixelType = (1 << 6) | (3 << 4) | (0 << 2) | (2)
+	PixelTypeGRWB PixelType = (2 << 6) | (1 << 4) | (0 << 2) | (3)
+	PixelTypeGRBW PixelType = (3 << 6) | (1 << 4) | (0 << 2) | (2)
+	PixelTypeGBWR PixelType = (2 << 6) | (3 << 4) | (0 << 2) | (1)
+	PixelTypeGBRW PixelType = (3 << 6) | (2 << 4) | (0 << 2) | (1)
+
+	PixelTypeBWRG PixelType = (1 << 6) | (2 << 4) | (3 << 2) | (0)
+	PixelTypeBWGR PixelType = (1 << 6) | (3 << 4) | (2 << 2) | (0)
+	PixelTypeBRWG PixelType = (2 << 6) | (1 << 4) | (3 << 2) | (0)
+	PixelTypeBRGW PixelType = (3 << 6) | (1 << 4) | (2 << 2) | (0)
+	PixelTypeBGWR PixelType = (2 << 6) | (3 << 4) | (1 << 2) | (0)
+	PixelTypeBGRW PixelType = (3 << 6) | (2 << 4) | (1 << 2) | (0)
 )
 
-// If 400 KHz support is enabled, the third parameter to the constructor
-// requires a 16-bit value (in order to select 400 vs 800 KHz speed).
-// If only 800 KHz is enabled (as is default on ATtiny), an 8-bit value
-// is sufficient to encode pixel color order, saving some space.
 const (
-	NEO_KHZ800 = 0x0000 // 800 KHz datastream
-	NEO_KHZ400 = 0x0100 // 400 KHz datastream
+	// SpeedKHz800 represents the encoded value for a 800KHz datastream
+	SpeedKHz800 = 0x0000
+
+	// SpeedKHz400 represents the encoded value for a 400KHz datastream
+	SpeedKHz400 = 0x0100
 )

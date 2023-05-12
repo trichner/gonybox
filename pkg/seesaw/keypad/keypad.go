@@ -38,16 +38,16 @@ func New(dev *seesaw.Device) *SeesawKeypad {
 func (s *SeesawKeypad) KeyEventCount() (uint8, error) {
 	//https://github.com/adafruit/Adafruit_Seesaw/blob/master/Adafruit_seesaw.cpp#L721
 	buf := make([]byte, 1)
-	err := s.seesaw.Read(seesaw.SEESAW_KEYPAD_BASE, seesaw.SEESAW_KEYPAD_COUNT, buf, 500*time.Microsecond)
+	err := s.seesaw.Read(seesaw.ModuleKeypadBase, seesaw.FunctionKeypadCount, buf, 500*time.Microsecond)
 	return buf[0], err
 }
 
 // SetKeypadInterrupt enables or disables interrupts for key events
 func (s *SeesawKeypad) SetKeypadInterrupt(enable bool) error {
 	if enable {
-		return s.seesaw.WriteRegister(seesaw.SEESAW_KEYPAD_BASE, seesaw.SEESAW_KEYPAD_INTENSET, 0x1)
+		return s.seesaw.WriteRegister(seesaw.ModuleKeypadBase, seesaw.FunctionKeypadIntenset, 0x1)
 	}
-	return s.seesaw.WriteRegister(seesaw.SEESAW_KEYPAD_BASE, seesaw.SEESAW_KEYPAD_INTENCLR, 0x1)
+	return s.seesaw.WriteRegister(seesaw.ModuleKeypadBase, seesaw.FunctionKeypadIntenclr, 0x1)
 }
 
 // Read reads pending KeyEvent s from the FIFO
@@ -57,7 +57,7 @@ func (s *SeesawKeypad) Read(buf []KeyEvent) error {
 	// use some unsafe magic to avoid copy-ing the entire buffer
 	bytesBuf := *(*[]byte)(unsafe.Pointer(&buf))
 
-	return s.seesaw.Read(seesaw.SEESAW_KEYPAD_BASE, seesaw.SEESAW_KEYPAD_FIFO, bytesBuf, 2*time.Millisecond)
+	return s.seesaw.Read(seesaw.ModuleKeypadBase, seesaw.FunctionKeypadFifo, bytesBuf, 2*time.Millisecond)
 }
 
 // ConfigureKeypad enables or disables a key and edge on the keypad module
@@ -71,5 +71,5 @@ func (s *SeesawKeypad) ConfigureKeypad(key uint8, edge Edge, enable bool) error 
 
 	//set ACTIVE
 	state |= (1 << edge) << 1
-	return s.seesaw.Write(seesaw.SEESAW_KEYPAD_BASE, seesaw.SEESAW_KEYPAD_EVENT, []byte{key, state})
+	return s.seesaw.Write(seesaw.ModuleKeypadBase, seesaw.FunctionKeypadEvent, []byte{key, state})
 }
