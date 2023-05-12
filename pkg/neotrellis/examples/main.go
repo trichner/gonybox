@@ -19,13 +19,27 @@ func main() {
 		panic(err)
 	}
 
+	buf := make([]neotrellis.RGB, 16)
+	for i := range buf {
+		buf[i] = neotrellis.RGB{0xFF, 0, 0}
+	}
+	err = dev.WriteColors(buf)
+	if err != nil {
+		panic(err)
+	}
+	err = dev.ShowPixels()
+	if err != nil {
+		panic(err)
+	}
+	time.Sleep(time.Second * 10)
+
 	i := uint8(0)
 	for {
 		r, g, b := colorWheel(i * 13)
 		p := i % 16
 		x := p / 4
 		y := p % 4
-		err = dev.SetPixelColor(x, y, r, g, b)
+		err = dev.SetPixelColor(x, y, neotrellis.RGB{r, g, b})
 		if err != nil {
 			panic(err)
 		}

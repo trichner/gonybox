@@ -1,6 +1,7 @@
 package neotrellis
 
 import (
+	"fmt"
 	"trelligo/pkg/seesaw"
 	"trelligo/pkg/seesaw/keypad"
 	"trelligo/pkg/seesaw/neopixel"
@@ -14,6 +15,10 @@ const neoPixelType = neopixel.PixelTypeGRB
 const yCount = 4
 const xCount = 4
 const keyCount = yCount * xCount
+
+type RGB struct {
+	R, G, B uint8
+}
 
 type Device struct {
 	dev        *seesaw.Device
@@ -56,9 +61,32 @@ func New(dev I2C, addr uint16) (*Device, error) {
 // SetPixelColor sets the color of a pixel at position x/y
 //
 // Note: ShowPixels MUST be called to actually show the updated color.
-func (d *Device) SetPixelColor(x, y uint8, r, g, b uint8) error {
+func (d *Device) SetPixelColor(x, y uint8, color RGB) error {
 	// `w` is always 0, the NeoTrellis only has RGB NeoPixels
-	return d.pix.WriteColorAtOffset(newXy(x, y).neoPixel(), neopixel.RGBW{r, g, b, 0})
+	return d.pix.WriteColorAtOffset(newXy(x, y).neoPixel(), neopixel.RGBW{
+		R: color.R,
+		G: color.G,
+		B: color.B,
+	})
+}
+
+// WriteColors writes the color for multiple pixels at once. At most all 16 LEDs can
+// be updated.
+// Note: ShowPixels MUST be called to actually show the updated colors.
+func (d *Device) WriteColors(colors []RGB) error {
+	if len(colors) > keyCount {
+		return fmt.Errorf("too many colors: %d > %d", len(colors), keyCount)
+	}
+
+	buf := make([]neopixel.RGBW, len(colors))
+	for i, c := range colors {
+		buf[i] = neopixel.RGBW{
+			R: c.R,
+			G: c.G,
+			B: c.B,
+		}
+	}
+	return d.pix.WriteColors(buf)
 }
 
 // ShowPixels instructs the NeoPixel buffer to update and display the set colors
