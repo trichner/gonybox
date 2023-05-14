@@ -1,7 +1,10 @@
+// Package hyst implements software hysteresis for a noisy source such as an ADC
 package hyst
 
+// generate a lookup-table (LUT) mapping from [0,0xFFFF] to [0,30]
 //go:generate go run gen_lut.go -start=2047 -length=31 -name=lut0to30
 
+// Getter for noisy uint16 values
 type Getter interface {
 	Get() uint16
 }
