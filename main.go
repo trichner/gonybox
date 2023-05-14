@@ -2,24 +2,53 @@ package main
 
 import (
 	"machine"
-	"strconv"
 	"time"
 	"trelligo/pkg/debug"
 	"trelligo/pkg/dfplayer"
 	"trelligo/pkg/dfplayer/uart"
+	"trelligo/pkg/hyst"
 	"trelligo/pkg/neotrellis"
-	"trelligo/pkg/seesaw/keypad"
-	"trelligo/pkg/shims/rand"
+	"trelligo/pkg/player"
 )
 
 func main() {
 	machine.LED.Configure(machine.PinConfig{Mode: machine.PinOutput})
 	machine.InitSerial()
 
-	time.Sleep(3 * time.Second)
+	// give some time for Serial to connect
+	time.Sleep(2 * time.Second)
+
+	debug.Log("setup ADC pin A0")
+	machine.InitADC()
+	adc0 := machine.ADC{Pin: machine.A0}
+	adc0.Configure(machine.ADCConfig{
+		Reference:  0,
+		Resolution: 12,
+	})
+
+	debug.Log("setup hysteresis")
+	h := hyst.New(adc0, 1000)
+
+	debug.Log("setup dfplayer")
+	dfp := try(setupDfplayer())
 
 	// seesaw
-	debug.Log("setup seesaw")
+	debug.Log("setup NeoTrellis")
+	nt := try(setupNeoTrellis())
+
+	debug.Log("setup player")
+	p := try(player.New(nt, dfp, h))
+
+	for {
+		err := p.Process()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+}
+
+func setupNeoTrellis() (*neotrellis.Device, error) {
 
 	debug.Log("i2c init")
 	i2c := machine.I2C0
@@ -28,88 +57,35 @@ func main() {
 		SDA: machine.SDA_PIN,
 	})
 	if err != nil {
-		fatal(err.Error())
+		return nil, err
 	}
 
 	debug.Log("initializing neotrellis")
-	nt, err := neotrellis.New(i2c, 0)
-	if err != nil {
-		fatal(err.Error())
-	}
+	nt := try(neotrellis.New(i2c, 0))
 
-	debug.Log("enabling keys")
-	for i := uint8(0); i < 16; i++ {
-		err := nt.ConfigureKeypad(i/4, i%4, keypad.EdgeRising, true)
-		if err != nil {
-			fatal(err.Error())
-		}
-	}
-
-	debug.Log("setup PRNG")
-	prng, err := setupPRNG()
-	if err != nil {
-		fatal(err.Error())
-	}
-
-	nt.SetKeyHandleFunc(func(x, y uint8, e keypad.Edge) error {
-		debug.Log("keypress: " + strconv.Itoa(int(x)) + "/" + strconv.Itoa(int(y)) + " (" + strconv.Itoa(int(e)) + ")")
-		c := prng.Uint32()
-		return nt.SetPixelColor(x, y, byte(0), byte(c>>8), byte(c>>16))
-	})
-
-	for i := uint8(0); i < 16; i++ {
-		err := nt.SetPixelColor(i/4, i%4, 0, 0, 0)
-		if err != nil {
-			warn("setpixel " + err.Error())
-		}
-	}
-
-	for {
-		err = nt.ShowPixels()
-		if err != nil {
-			warn("showpixels " + err.Error())
-		}
-		time.Sleep(100 * time.Millisecond)
-
-		err := nt.ProcessKeyEvents()
-		if err != nil {
-			warn("readkeys " + err.Error())
-		}
-	}
-
-}
-
-func setupPRNG() (*rand.Rand, error) {
-
-	hi, err := machine.GetRNG()
-	if err != nil {
-		return nil, err
-	}
-	lo, err := machine.GetRNG()
-	if err != nil {
-		return nil, err
-	}
-	rsrc := rand.NewSource(int64(hi)<<32 | int64(lo))
-	return rand.New(rsrc), nil
+	return nt, nil
 }
 
 func setupDfplayer() (*dfplayer.Player, error) {
 
 	uart1 := machine.UART1
-	uart1.Configure(machine.UARTConfig{
+	err := uart1.Configure(machine.UARTConfig{
 		BaudRate: 9600,
 		TX:       machine.D1,
 		RX:       machine.D0,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	rr := uart.NewRoundTripper(uart1)
 	player := dfplayer.NewPlayer(rr)
 
-	err := player.Reset()
+	err = player.Reset()
 	if err != nil {
 		return nil, err
 	}
-	time.Sleep(time.Millisecond * 2000)
+	time.Sleep(time.Second * 3)
 	return player, nil
 }
 
@@ -123,6 +99,9 @@ func fatal(s string) {
 	}
 }
 
-func warn(s string) {
-	debug.Log("WARN: " + s)
+func try[T any](t T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return t
 }

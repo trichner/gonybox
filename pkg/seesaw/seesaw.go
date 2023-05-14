@@ -7,7 +7,7 @@ import (
 
 const DefaultSeesawAddress = 0x49
 
-// empirically determined delay, the one from the official library seems to be too short (250us)
+// empirically determined standardDelay, the one from the official library seems to be too short (250us)
 const defaultDelay = 10 * time.Millisecond
 
 const (
@@ -16,15 +16,17 @@ const (
 )
 
 type Device struct {
-	bus  I2C
-	addr uint16
-	hwid byte
+	bus           I2C
+	addr          uint16
+	hwid          byte
+	standardDelay time.Duration
 }
 
 func New(addr uint16, bus I2C) *Device {
 	return &Device{
-		bus:  bus,
-		addr: addr,
+		bus:           bus,
+		addr:          addr,
+		standardDelay: defaultDelay,
 	}
 }
 
@@ -36,7 +38,7 @@ func (d *Device) Begin() error {
 		return err
 	}
 
-	time.Sleep(defaultDelay)
+	time.Sleep(d.standardDelay)
 
 	var lastErr error
 	tries := 0
@@ -76,7 +78,7 @@ func (d *Device) ReadHardwareID() (byte, error) {
 func (d *Device) ReadVersion() (uint32, error) {
 
 	buf := make([]byte, 4)
-	err := d.Read(ModuleStatusBase, FunctionStatusVersion, buf, defaultDelay)
+	err := d.Read(ModuleStatusBase, FunctionStatusVersion, buf, d.standardDelay)
 	if err != nil {
 		return 0, err
 	}
@@ -97,14 +99,14 @@ func (d *Device) WriteRegister(module ModuleBaseAddress, function FunctionAddres
 // ReadRegister reads a single register from seesaw
 func (d *Device) ReadRegister(module ModuleBaseAddress, function FunctionAddress) (byte, error) {
 	buf := make([]byte, 1)
-	err := d.Read(module, function, buf, defaultDelay)
+	err := d.Read(module, function, buf, d.standardDelay)
 	if err != nil {
 		return 0, err
 	}
 	return buf[0], nil
 }
 
-// Read reads a number of bytes from the device after sending the read command and waiting 'delay'. The delays depend
+// Read reads a number of bytes from the device after sending the read command and waiting 'standardDelay'. The delays depend
 // on the module and function and are documented in the seesaw datasheet
 func (d *Device) Read(module ModuleBaseAddress, function FunctionAddress, buf []byte, delay time.Duration) error {
 	prefix := []byte{byte(module), byte(function)}

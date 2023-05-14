@@ -4,6 +4,8 @@ import (
 	"errors"
 )
 
+var ErrVolumeOutOfRange = errors.New("volume out of range")
+
 const (
 	CommandNext                   = 0x01
 	CommandPrevious               = 0x02
@@ -88,6 +90,9 @@ func (d *Player) VolumeDown() error {
 
 // SetVolume sets the volume of the player, volume must be in the range [0,30]
 func (d *Player) SetVolume(volume uint8) error {
+	if volume > 30 {
+		return ErrVolumeOutOfRange
+	}
 	return d.sendCommandWithArg(CommandSetVolume, uint16(volume))
 }
 

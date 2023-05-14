@@ -16,6 +16,7 @@ const yCount = 4
 const xCount = 4
 const keyCount = yCount * xCount
 
+// RGB represents the color for a NeoTrellis key LED
 type RGB struct {
 	R, G, B uint8
 }
@@ -113,14 +114,19 @@ func (d *Device) ProcessKeyEvents() error {
 
 	n, err := d.kpd.KeyEventCount()
 	if err != nil {
-		return err
+		// NOTE: The device seems to respond with a NACK if there are no events, let's ignore them.
+		// This only works with the current machine.I2C implementation.
+		if err.Error() == "I2C error: expected ACK not NACK" {
+			return nil
+		}
+		return fmt.Errorf("failed to read key event count: %w", err)
 	}
 
 	buf := d.events[:minu8(uint8(cap(d.events)), n)]
 
 	err = d.kpd.Read(buf)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read key event buffer: %w", err)
 	}
 
 	if d.keyHandler == nil {
