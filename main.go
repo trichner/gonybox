@@ -8,7 +8,9 @@ import (
 	"trelligo/pkg/dfplayer/uart"
 	"trelligo/pkg/hyst"
 	"trelligo/pkg/neotrellis"
+	"trelligo/pkg/neotrellis/animations"
 	"trelligo/pkg/player"
+	"trelligo/pkg/prng"
 )
 
 func main() {
@@ -32,9 +34,21 @@ func main() {
 	debug.Log("setup dfplayer")
 	dfp := try(setupDfplayer())
 
-	// seesaw
 	debug.Log("setup NeoTrellis")
 	nt := try(setupNeoTrellis())
+
+	debug.Log("blink a bit")
+	r := try(prng.NewDefault())
+	a := animations.NewRandomBlink(r)
+	err := animations.AnimateFor(nt, a, time.Second*5)
+	if err != nil {
+		panic(err)
+	}
+	a2 := animations.NewInfinityRainbow()
+	err = animations.AnimateFor(nt, a2, time.Second*5)
+	if err != nil {
+		panic(err)
+	}
 
 	debug.Log("setup player")
 	p := try(player.New(nt, dfp, h))

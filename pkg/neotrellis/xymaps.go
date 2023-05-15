@@ -1,6 +1,6 @@
 package neotrellis
 
-// xy maps between X/Y coordinates, seesaw key and neoTrellis pixels.
+// Position maps between X/Y coordinates, seesaw key and neoTrellis pixels.
 // There are three representations of keys on the NeoTrellis:
 //
 // 1. NeoTrellis pixel offsets, sequential number through 0 to 15
@@ -29,27 +29,27 @@ package neotrellis
 //	02 12 22 32
 //	01 11 21 31
 //	00 10 20 30
-type xy uint8
+type Position uint8
 
-func newXy(x, y uint8) xy {
-	return xy(x<<4 | y&0x0F)
+func PositionFromXY(x, y uint8) Position {
+	return Position(x<<4 | y&0x0F)
 }
-func newXyFromSeesawKey(k uint8) xy {
-	return newXy(seesawKeyToXy(k))
+func newXyFromSeesawKey(k uint8) Position {
+	return PositionFromXY(seesawKeyToXy(k))
 }
-func (v xy) X() uint8 {
+func (v Position) X() uint8 {
 	return uint8(v >> 4)
 }
 
-func (v xy) Y() uint8 {
+func (v Position) Y() uint8 {
 	return uint8(v & 0x0F)
 }
 
-func (v xy) seesawKey() uint8 {
+func (v Position) KeyID() uint8 {
 	return xyToSeesawKey(v.X(), v.Y())
 }
 
-func (v xy) neoPixel() uint16 {
+func (v Position) PixelOffset() uint16 {
 	// returning uint16 because that's what NeoPixel offsets want
 	return uint16(v.X()*4 + v.Y())
 }

@@ -64,7 +64,7 @@ func New(dev I2C, addr uint16) (*Device, error) {
 // Note: ShowPixels MUST be called to actually show the updated color.
 func (d *Device) SetPixelColor(x, y uint8, color RGB) error {
 	// `w` is always 0, the NeoTrellis only has RGB NeoPixels
-	return d.pix.WriteColorAtOffset(newXy(x, y).neoPixel(), neopixel.RGBW{
+	return d.pix.WriteColorAtOffset(PositionFromXY(x, y).PixelOffset(), neopixel.RGBW{
 		R: color.R,
 		G: color.G,
 		B: color.B,
@@ -98,7 +98,7 @@ func (d *Device) ShowPixels() error {
 // ConfigureKeypad enables or disables a key and edge on the keypad module. Events can be handled by setting a handler
 // with SetKeyHandleFunc.
 func (d *Device) ConfigureKeypad(x, y uint8, edge keypad.Edge, enable bool) error {
-	return d.kpd.ConfigureKeypad(newXy(x, y).seesawKey(), edge, enable)
+	return d.kpd.ConfigureKeypad(PositionFromXY(x, y).KeyID(), edge, enable)
 }
 
 // SetKeyHandleFunc sets a callback for key events
