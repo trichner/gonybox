@@ -2,9 +2,8 @@ package seesaw
 
 type ModuleBaseAddress byte
 
-/** Module Base Addreses
- *  The module base addresses for different seesaw modules.
- */
+// Module Base Addreses
+// The module base addresses for different seesaw modules.
 const (
 	ModuleStatusBase  ModuleBaseAddress = 0x00
 	ModuleGpioBase    ModuleBaseAddress = 0x01
@@ -25,8 +24,7 @@ const (
 
 type FunctionAddress byte
 
-/** GPIO module function address registers
- */
+// GPIO module function address registers
 const (
 	FunctionGpioDirsetBulk FunctionAddress = 0x02
 	FunctionGpioDirclrBulk FunctionAddress = 0x03
@@ -41,8 +39,7 @@ const (
 	FunctionGpioPullenclr  FunctionAddress = 0x0C
 )
 
-/** status module function address registers
- */
+// status module function address registers
 const (
 	FunctionStatusHwId    FunctionAddress = 0x01
 	FunctionStatusVersion FunctionAddress = 0x02
@@ -51,16 +48,14 @@ const (
 	FunctionStatusSwrst   FunctionAddress = 0x7F
 )
 
-/** timer module function address registers
- */
+// timer module function address registers
 const (
 	FunctionTimerStatus FunctionAddress = 0x00
 	FunctionTimerPwm    FunctionAddress = 0x01
 	FunctionTimerFreq   FunctionAddress = 0x02
 )
 
-/** ADC module function address registers
- */
+// ADC module function address registers
 const (
 	FunctionAdcStatus        FunctionAddress = 0x00
 	FunctionAdcInten         FunctionAddress = 0x02
@@ -70,8 +65,7 @@ const (
 	FunctionAdcChannelOffset FunctionAddress = 0x07
 )
 
-/** Sercom module function address registers
- */
+// Sercom module function address registers
 const (
 	FunctionSercomStatus   FunctionAddress = 0x00
 	FunctionSercomInten    FunctionAddress = 0x02
@@ -80,8 +74,7 @@ const (
 	FunctionSercomData     FunctionAddress = 0x05
 )
 
-/** neopixel module function address registers
- */
+// neopixel module function address registers
 const (
 	FunctionNeopixelStatus    FunctionAddress = 0x00
 	FunctionNeopixelPin       FunctionAddress = 0x01
@@ -91,14 +84,12 @@ const (
 	FunctionNeopixelShow      FunctionAddress = 0x05
 )
 
-/** touch module function address registers
- */
+// touch module function address registers
 const (
 	FunctionTouchChannelOffset FunctionAddress = 0x10
 )
 
-/** keypad module function address registers
- */
+// keypad module function address registers
 const (
 	FunctionKeypadStatus   FunctionAddress = 0x00
 	FunctionKeypadEvent    FunctionAddress = 0x01
@@ -106,39 +97,4 @@ const (
 	FunctionKeypadIntenclr FunctionAddress = 0x03
 	FunctionKeypadCount    FunctionAddress = 0x04
 	FunctionKeypadFifo     FunctionAddress = 0x10
-)
-
-/** keypad module edge definitions
- */
-const (
-	KeypadEdgeHigh = 0
-	KeypadEdgeLow
-	KeypadEdgeFalling
-	KeypadEdgeRising
-)
-
-/** encoder module edge definitions
- */
-const (
-	EncoderStatus   = 0x00
-	EncoderIntenset = 0x10
-	EncoderIntenclr = 0x20
-	EncoderPosition = 0x30
-	EncoderDelta    = 0x40
-)
-
-/** Audio spectrum module function address registers
- */
-const (
-	FunctionSpectrumResultsLower FunctionAddress = 0x00 // Audio spectrum bins 0-31
-	FunctionSpectrumResultsUpper FunctionAddress = 0x01 // Audio spectrum bins 32-63
-
-	// If some future device supports a larger spectrum can add additional
-	// "bins" working upward from here. Configurable setting registers then
-	// work downward from the top to avoid collision between spectrum bins
-	// and configurables.
-
-	FunctionSpectrumChannel FunctionAddress = 0xFD
-	FunctionSpectrumRate    FunctionAddress = 0xFE
-	FunctionSpectrumStatus  FunctionAddress = 0xFF
 )

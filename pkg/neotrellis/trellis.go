@@ -11,7 +11,6 @@ import (
 // The address can be changed with solder bridges, allowing daisy-chaining multiple NeoTrellis boards.
 const DefaultNeoTrellisAddress = 0x2E
 const neoPixelPin = 3
-const neoPixelType = neopixel.PixelTypeGRB
 const yCount = 4
 const xCount = 4
 const keyCount = yCount * xCount
@@ -36,11 +35,11 @@ func New(dev I2C, addr uint16) (*Device, error) {
 	}
 
 	ss := seesaw.New(addr, dev)
-	if err := ss.Begin(); err != nil {
+	if err := ss.SoftReset(); err != nil {
 		return nil, err
 	}
 
-	pix, err := neopixel.New(ss, neoPixelPin, keyCount, neoPixelType)
+	pix, err := neopixel.New(ss, neoPixelPin, keyCount)
 	if err != nil {
 		return nil, err
 	}

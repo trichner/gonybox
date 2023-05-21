@@ -29,7 +29,7 @@ func main() {
 	})
 
 	debug.Log("setup hysteresis")
-	h := hyst.New(adc0, 1000)
+	h := hyst.New(adc0, 1500)
 
 	debug.Log("setup dfplayer")
 	dfp := try(setupDfplayer())

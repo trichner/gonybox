@@ -24,21 +24,15 @@ func main() {
 
 	log("init seesaw")
 	ss := seesaw.New(DefaultNeoTrellisAddress, i2c)
-	err = ss.Begin()
+	err = ss.SoftReset()
 	if err != nil {
 		fatal(err)
 	}
 
-	//v, err := ss.ReadVersion()
-	//if err != nil {
-	//	fatal(err)
-	//}
-	//log("version: " + strconv.FormatInt(int64(v), 10))
-
 	time.Sleep(100 * time.Millisecond)
 
 	log("init neopixel")
-	pix, err := neopixel.New(ss, neoPixelPin, 16, neopixel.PixelTypeGRB)
+	pix, err := neopixel.New(ss, neoPixelPin, 16)
 	if err != nil {
 		fatal(err)
 	}

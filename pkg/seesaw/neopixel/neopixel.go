@@ -1,7 +1,7 @@
 package neopixel
 
 import (
-	"fmt"
+	"errors"
 	"strconv"
 	"time"
 	"trelligo/pkg/seesaw"
@@ -10,6 +10,8 @@ import (
 // seesawWriteDelay the seesaw is quite timing sensitive and times out if not given enough time,
 // this is an empirically determined delay that seems to have good results
 const seesawWriteDelay = time.Millisecond * 10
+
+const encodedColorLength = 3
 
 // RGBW represents the RGBW color of an LED.
 type RGBW struct {
@@ -20,42 +22,33 @@ type Device struct {
 	seesaw          *seesaw.Device
 	ledCount        int
 	pin             uint8
-	pixelType       PixelType
 	lastOperationAt time.Time
 }
 
-func New(dev *seesaw.Device, pin uint8, ledCount int, pixelType PixelType) (*Device, error) {
+func New(dev *seesaw.Device, pin uint8, ledCount int) (*Device, error) {
 
 	pixel := &Device{
-		seesaw:    dev,
-		ledCount:  ledCount,
-		pin:       pin,
-		pixelType: pixelType,
+		seesaw:   dev,
+		ledCount: ledCount,
+		pin:      pin,
 	}
 
 	if !pixel.checkBufferLength(ledCount) {
-		return nil, fmt.Errorf("invalid LED count: %d", ledCount)
+		return nil, errors.New("invalid pixel count: " + strconv.Itoa(ledCount))
 	}
 
 	time.Sleep(seesawWriteDelay)
 
 	err := pixel.setupPin()
 	if err != nil {
-		return nil, fmt.Errorf("failed to update NeoPixel pin %d: %w", pin, err)
+		return nil, errors.New("failed to update pixel pin " + strconv.Itoa(int(pin)) + ": " + err.Error())
 	}
 
 	time.Sleep(seesawWriteDelay)
 
 	err = pixel.setupLedCount()
 	if err != nil {
-		return nil, fmt.Errorf("failed to update LED count %d: %w", ledCount, err)
-	}
-
-	time.Sleep(seesawWriteDelay)
-
-	err = pixel.setupSpeed()
-	if err != nil {
-		return nil, fmt.Errorf("failed to update pixel type: %w", err)
+		return nil, errors.New("failed to update pixel count " + strconv.Itoa(ledCount) + ": " + err.Error())
 	}
 
 	time.Sleep(seesawWriteDelay)
@@ -65,21 +58,13 @@ func New(dev *seesaw.Device, pin uint8, ledCount int, pixelType PixelType) (*Dev
 
 func (s *Device) setupLedCount() error {
 
-	lenBytes := calculateBufferLength(s.ledCount, s.pixelType)
+	lenBytes := calculateBufferLength(s.ledCount)
 	buf := []byte{byte(lenBytes >> 8), byte(lenBytes & 0xFF)}
 	return s.seesaw.Write(seesaw.ModuleNeoPixelBase, seesaw.FunctionNeopixelBufLength, buf)
 }
 
-func calculateBufferLength(ledCount int, pixelType PixelType) int {
-	return ledCount * pixelType.EncodedLen()
-}
-
-func (s *Device) setupSpeed() error {
-	speed := byte(0)
-	if s.pixelType.Is800KHz() {
-		speed = 1
-	}
-	return s.seesaw.WriteRegister(seesaw.ModuleNeoPixelBase, seesaw.FunctionNeopixelSpeed, speed)
+func calculateBufferLength(ledCount int) int {
+	return ledCount * encodedColorLength
 }
 
 func (s *Device) setupPin() error {
@@ -89,14 +74,9 @@ func (s *Device) setupPin() error {
 // WriteColorAtOffset updates the color for a single LED at the given offset
 func (s *Device) WriteColorAtOffset(offset uint16, color RGBW) error {
 
-	encodedLen := s.pixelType.EncodedLen()
-
-	buf := make([]byte, encodedLen)
-	l := s.pixelType.PutRGBW(buf, color)
-	if l != encodedLen {
-		panic("unexpected encoded length: " + strconv.Itoa(l) + " != " + strconv.Itoa(encodedLen))
-	}
-	byteOffset := offset * uint16(encodedLen)
+	buf := make([]byte, encodedColorLength)
+	putGRB(buf, color)
+	byteOffset := offset * uint16(encodedColorLength)
 	return s.writeBuffer(byteOffset, buf)
 }
 
@@ -104,16 +84,14 @@ func (s *Device) WriteColorAtOffset(offset uint16, color RGBW) error {
 func (s *Device) WriteColors(buf []RGBW) error {
 
 	if len(buf) > s.ledCount {
-		return fmt.Errorf("buffer too big, only %d LEDs setup: %d > %d", s.ledCount, len(buf), s.ledCount)
+		return errors.New("buffer too big " + strconv.Itoa(len(buf)) + ">" + strconv.Itoa(s.ledCount*encodedColorLength))
 	}
 
-	encodedLen := s.pixelType.EncodedLen()
-
-	tx := make([]byte, encodedLen*len(buf))
+	tx := make([]byte, encodedColorLength*len(buf))
 	pos := 0
 	for _, c := range buf {
 		w := tx[pos:]
-		n := s.pixelType.PutRGBW(w, c)
+		n := putGRB(w, c)
 		pos += n
 	}
 
@@ -126,7 +104,7 @@ func (s *Device) WriteColors(buf []RGBW) error {
 		toSend := tx[i:min(i+chunkSize, len(tx))]
 		err := s.writeBuffer(uint16(i), toSend)
 		if err != nil {
-			return fmt.Errorf("failed to write NeoPixel buffer offset %d: %w", i, err)
+			return errors.New("failed to write NeoPixel buffer offset " + strconv.Itoa(i) + ": " + err.Error())
 		}
 	}
 
@@ -163,13 +141,7 @@ func (s *Device) waitSinceLastOperation(d time.Duration) {
 // output pin as well as the communication protocol frequency are configurable. Note:
 // older firmware is limited to 63 pixels max.
 func (s *Device) checkBufferLength(l int) bool {
-	const maxRgbwPixelCount = 127
 	const maxRgbPixelCount = 170
-
-	if s.pixelType.IsRGBW() {
-		return l <= maxRgbwPixelCount
-	}
-
 	return l <= maxRgbPixelCount
 }
 
@@ -178,4 +150,11 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func putGRB(buf []byte, color RGBW) int {
+	buf[0] = color.G
+	buf[1] = color.R
+	buf[2] = color.B
+	return encodedColorLength
 }

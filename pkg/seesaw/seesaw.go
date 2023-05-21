@@ -1,14 +1,16 @@
+// Package seesaw provides a driver implementation to communicate with Adafruit's seesaw chip.
 package seesaw
 
 import (
-	"fmt"
+	"errors"
+	"strconv"
 	"time"
 )
 
 const DefaultSeesawAddress = 0x49
 
 // empirically determined standardDelay, the one from the official library seems to be too short (250us)
-const defaultDelay = 10 * time.Millisecond
+const defaultDelay = 100 * time.Millisecond
 
 const (
 	seesawHwIdCodeSAMD09  = 0x55 // HW ID code for SAMD09
@@ -30,38 +32,36 @@ func New(addr uint16, bus I2C) *Device {
 	}
 }
 
-// Begin resets and initializes the seesaw chip
-func (d *Device) Begin() error {
-
-	err := d.SoftReset()
+// SoftReset triggers a soft-reset of seesaw and waits for it to be ready
+func (d *Device) SoftReset() error {
+	err := d.WriteRegister(ModuleStatusBase, FunctionStatusSwrst, 0xFF)
 	if err != nil {
-		return err
+		return errors.New("failed sending soft-reset command: " + err.Error())
 	}
 
-	time.Sleep(d.standardDelay)
+	return d.waitForReset()
+}
+
+func (d *Device) waitForReset() error {
+
+	//give the device a little bit of time to reset
+	time.Sleep(time.Second)
 
 	var lastErr error
 	tries := 0
 	for ; tries < 20; tries++ {
-		hwid, err := d.ReadHardwareID()
+		hwid, err := d.readHardwareID()
 		if err == nil {
 			d.hwid = hwid
-			lastErr = nil
-			break
+			return nil
 		}
 		lastErr = err
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 	}
-
-	if lastErr != nil {
-		return fmt.Errorf("failed to read hardware ID after reset, tryed %d times: %w", tries, lastErr)
-	}
-
-	return nil
+	return errors.New("failed to wait for device to start: " + lastErr.Error())
 }
 
-// ReadHardwareID reads the ID of the seesaw device
-func (d *Device) ReadHardwareID() (byte, error) {
+func (d *Device) readHardwareID() (byte, error) {
 	hwid, err := d.ReadRegister(ModuleStatusBase, FunctionStatusHwId)
 	if err != nil {
 		return 0, err
@@ -71,23 +71,7 @@ func (d *Device) ReadHardwareID() (byte, error) {
 		return hwid, nil
 	}
 
-	return 0, fmt.Errorf("unknown hardware ID: %0X", hwid)
-}
-
-// ReadVersion reads the version bytes from the device (undocumented in the datasheet)
-func (d *Device) ReadVersion() (uint32, error) {
-
-	buf := make([]byte, 4)
-	err := d.Read(ModuleStatusBase, FunctionStatusVersion, buf, d.standardDelay)
-	if err != nil {
-		return 0, err
-	}
-	return (uint32(buf[0]) << 24) | (uint32(buf[1]) << 16) | (uint32(buf[2]) << 8) | uint32(buf[3]), nil
-}
-
-// SoftReset triggers a soft-reset of seesaw
-func (d *Device) SoftReset() error {
-	return d.WriteRegister(ModuleStatusBase, FunctionStatusSwrst, 0xFF)
+	return 0, errors.New("unknown hardware ID: " + strconv.FormatUint(uint64(hwid), 16))
 }
 
 // WriteRegister writes a single seesaw register
@@ -115,14 +99,25 @@ func (d *Device) Read(module ModuleBaseAddress, function FunctionAddress, buf []
 		return err
 	}
 
-	//see seesaw datasheet
+	//This is needed for the client seesaw device to flush its RX buffer and process the command.
+	//See seesaw datasheet for timings for specific modules.
 	time.Sleep(delay)
 
 	return d.bus.Tx(d.addr, nil, buf)
 }
 
+// Write writes an entire array into a given module and function
 func (d *Device) Write(module ModuleBaseAddress, function FunctionAddress, buf []byte) error {
 	prefix := []byte{byte(module), byte(function)}
 	data := append(prefix, buf...)
 	return d.bus.Tx(d.addr, data, nil)
+}
+
+var hexLookupTable = [16]byte{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'}
+
+func byteToHexString(s byte) string {
+	formatted := make([]byte, 2)
+	formatted[0] = hexLookupTable[s>>4]
+	formatted[1] = hexLookupTable[s&0xf]
+	return string(formatted)
 }
