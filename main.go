@@ -37,10 +37,13 @@ func main() {
 	debug.Log("setup NeoTrellis")
 	nt := try(setupNeoTrellis())
 
+	time.Sleep(time.Second * 1)
+
 	debug.Log("blink a bit")
+	var err error
 	r := try(prng.NewDefault())
 	a := animations.NewRandomBlink(r)
-	err := animations.AnimateFor(nt, a, time.Second*5)
+	err = animations.AnimateFor(nt, a, time.Second*5)
 	if err != nil {
 		panic(err)
 	}

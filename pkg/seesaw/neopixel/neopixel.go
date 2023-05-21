@@ -9,7 +9,7 @@ import (
 
 // seesawWriteDelay the seesaw is quite timing sensitive and times out if not given enough time,
 // this is an empirically determined delay that seems to have good results
-const seesawWriteDelay = time.Millisecond * 10
+const seesawWriteDelay = time.Millisecond * 50
 
 const encodedColorLength = 3
 

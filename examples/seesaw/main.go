@@ -42,8 +42,6 @@ func main() {
 		fatal(err)
 	}
 
-	time.Sleep(100 * time.Millisecond)
-
 	log("init neopixel")
 
 	err = ss.WriteRegister(seesaw.ModuleNeoPixelBase, seesaw.FunctionNeopixelPin, neoPixelPin)
@@ -84,7 +82,7 @@ func main() {
 			fatal(err)
 		}
 
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 
 		log("showing rainbow")
 		err = ss.Write(seesaw.ModuleNeoPixelBase, seesaw.FunctionNeopixelShow, nil)
