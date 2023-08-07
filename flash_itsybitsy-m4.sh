@@ -2,7 +2,8 @@
 
 set -e
 
-/home/trichner/workspaces/go/tinygo-v0.26.0/bin/tinygo flash -target itsybitsy-m4 -scheduler tasks -gc conservative -size full
+/home/trichner/workspaces/tinygo/build/tinygo \
+    flash -target itsybitsy-m4 -scheduler tasks -gc conservative -size full
 
 #arm-none-eabi-objcopy -O ihex trelligo.elf a.hex
 
