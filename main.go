@@ -6,9 +6,10 @@ import (
 	"trelligo/pkg/debug"
 	"trelligo/pkg/dfplayer"
 	"trelligo/pkg/dfplayer/uart"
+	"trelligo/pkg/draw/animations"
+	"trelligo/pkg/draw/ntdisplay"
 	"trelligo/pkg/hyst"
 	"trelligo/pkg/neotrellis"
-	"trelligo/pkg/neotrellis/animations"
 	"trelligo/pkg/player"
 	"trelligo/pkg/prng"
 )
@@ -41,14 +42,24 @@ func main() {
 
 	debug.Log("blink a bit")
 	var err error
+
+	display := ntdisplay.NewDisplay(nt)
+
 	r := try(prng.NewDefault())
+
+	m := animations.NewMatrix(r)
+	err = animations.AnimateFor(display, m, 100*time.Second)
+	if err != nil {
+		panic(err)
+	}
+
 	a := animations.NewRandomBlink(r)
-	err = animations.AnimateFor(nt, a, time.Second*5)
+	err = animations.AnimateFor(display, a, time.Second)
 	if err != nil {
 		panic(err)
 	}
 	a2 := animations.NewInfinityRainbow()
-	err = animations.AnimateFor(nt, a2, time.Second*5)
+	err = animations.AnimateFor(display, a2, time.Second)
 	if err != nil {
 		panic(err)
 	}

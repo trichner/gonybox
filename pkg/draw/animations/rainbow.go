@@ -2,25 +2,21 @@ package animations
 
 import (
 	"time"
-	"trelligo/pkg/neotrellis"
+	"trelligo/pkg/draw"
 )
 
 type infinityRainbow struct {
-	buf        []neotrellis.RGB
+	buf        draw.Buffer4x4
 	iteration  uint8
 	lastUpdate time.Time
 }
 
-func NewInfinityRainbow() Animation {
-	buf := make([]neotrellis.RGB, 16)
-
-	return &infinityRainbow{
-		buf: buf,
-	}
+func NewInfinityRainbow() draw.Animation {
+	return &infinityRainbow{}
 }
 
-func (i *infinityRainbow) Draw(dev *neotrellis.Device) error {
-	return drawBuffer(dev, i.buf)
+func (i *infinityRainbow) Draw(display draw.Display) error {
+	return display.WriteBuffer(&i.buf)
 }
 func (i *infinityRainbow) Update(now time.Time) {
 

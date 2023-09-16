@@ -2,31 +2,29 @@ package animations
 
 import (
 	"time"
-	"trelligo/pkg/neotrellis"
+	"trelligo/pkg/draw"
 	"trelligo/pkg/shims/rand"
 )
 
 type randomBlink struct {
-	buf []neotrellis.RGB
+	buf draw.Buffer4x4
 	rnd *rand.Rand
 
 	lastUpdate time.Time
 }
 
-func NewRandomBlink(r *rand.Rand) Animation {
-	buf := make([]neotrellis.RGB, 16)
-	for i := range buf {
-		buf[i] = colorWheel(uint8(r.Uint32()))
+func NewRandomBlink(r *rand.Rand) draw.Animation {
+	b := &randomBlink{rnd: r}
+
+	for i := range b.buf {
+		b.buf[i] = colorWheel(uint8(r.Uint32()))
 	}
 
-	return &randomBlink{
-		buf: buf,
-		rnd: r,
-	}
+	return b
 }
 
-func (r *randomBlink) Draw(dev *neotrellis.Device) error {
-	return drawBuffer(dev, r.buf)
+func (r *randomBlink) Draw(display draw.Display) error {
+	return display.WriteBuffer(&r.buf)
 }
 func (r *randomBlink) Update(now time.Time) {
 
