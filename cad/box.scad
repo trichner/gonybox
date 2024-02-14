@@ -7,7 +7,7 @@ module buttons(topwall){
     linear_extrude(topwall){ 
         polygon(round_corners(square(11, center = true),"circle", r=1.5 ));
     };
-  grid_copies(30,2) cylinder(h=topwall-2, r=0.5);
+  grid_copies(30,2) cylinder(h=topwall-2, r=1);
 }
 
 module poti(wall){
@@ -37,7 +37,7 @@ module speaker(wall){
 module interior(){
     topwall = 5;
     bottomwall = 5;
-    trelligo_depth = 13;
+    trelligo_depth = 16;
     size = 100;
     wall = 10;
     bodyheight = size - trelligo_depth - topwall - bottomwall;
@@ -46,7 +46,7 @@ module interior(){
         attach(TOP, CTR+BOTTOM)
           cube([size-wall*2,size-wall*2,bodyheight]) {
             attach(TOP, CTR+BOTTOM) 
-              cube([62,62,trelligo_depth])
+              cube([61,61,trelligo_depth])
                 attach(TOP) buttons(topwall);
             up(trelligo_depth/2) attach(LEFT) poti(wall);
             up(trelligo_depth/2) attach(RIGHT) speaker(wall);
@@ -94,26 +94,36 @@ module insert(){
 }
 
 module trellis_support(){
+  width = 79;
+  
   difference(){
-    cube([60,60,5]){
+    cube([width,width,5]){
       attach(TOP,CTR+BOTTOM) ycopies(30, 2) cylinder(h=8,r1=3,r2=2);
       attach(TOP,CTR+BOTTOM) right(15) cylinder(h=8,r1=3,r2=2);
       attach(TOP,CTR+BOTTOM) grid_copies(54, 2) cube([6,6,8]);
     };
-    translate([30-7,30,0]) cylinder(h=10, r=10);
-    translate([30,30,0])
+    translate([width/2-7,width/2,0]) cylinder(h=10, r=10);
+    translate([width/2,width/2,0])
       grid_copies(30, 2)
-        cylinder(h=10, r=1);
+        cylinder(h=10, r=1.5);
+    translate([width/2,width/2,0]) // corner screw holes
+      grid_copies(70, 2)
+        cylinder(h=10, r=1.5);
   }
 }
 
 module sample_top(){
+  width = 80;
   difference(){
- cube([70,70,25]);
- translate([4,4,0]) 
-   cube([62,62,20])
-    attach(TOP) buttons(5);
-}
+    //cube([width,width,21]);
+    cuboid([width,width,21], rounding=5, anchor=BOT+LEFT+FRONT,teardrop=true, edges=[TOP, "Z"]);
+    translate([(width-61)/2,(width-61)/2,0]) 
+      cube([61,61,16])
+        attach(TOP) buttons(5);
+    translate([width/2,width/2,0]) // corner screw holes
+      grid_copies(70, 2)
+        cylinder(h=10, r=1);
+  }
 }
 
 box();
@@ -125,7 +135,7 @@ left(100+40) insert();
 
 fwd(100) left(100) trellis_support();
 
-translate([-200,-100,0]) sample_top();
+translate([-200,-100,21]) zflip() sample_top();
 
 /*
 diff() cube(100, center = true) {
