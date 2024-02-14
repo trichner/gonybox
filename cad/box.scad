@@ -135,7 +135,7 @@ left(100+40) insert();
 
 fwd(100) left(100) trellis_support();
 
-translate([-200,-100,21]) zflip() sample_top();
+translate([-130,-100,21]) yrot(180) sample_top();
 
 /*
 diff() cube(100, center = true) {
