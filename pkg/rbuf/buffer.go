@@ -18,6 +18,11 @@ func New[T any](size int) RingBuffer[T] {
 		buf: make([]T, size),
 	}
 }
+func Wrap[T any](buf []T) RingBuffer[T] {
+	return RingBuffer[T]{
+		buf: buf,
+	}
+}
 func (r *RingBuffer[T]) Write(t T) error {
 	i := (r.iwrite + 1) % len(r.buf)
 	if i == r.iread {
