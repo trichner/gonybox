@@ -136,22 +136,3 @@ module sample_top(){
       interior();
   }
 }
-
-box();
-left(250) interior();
-
-left(100+40) insert();
-
-//fwd(100) speaker_in();
-
-fwd(100) left(100) trellis_support();
-
-translate([-130,-100,25]) yrot(180) sample_top();
-
-/*
-diff() cube(100, center = true) {
-    force_tag("remove") down(10) attach(TOP) buttons();
-    tag("remove") attach(BOTTOM) down(45) cube([62,62,100], center = true);
-    tag("remove") attach(BOTTOM) down(30) cube([80,80,100], center = true);
-}
-*/
